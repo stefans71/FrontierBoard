@@ -19,19 +19,29 @@ Introduce what's about to happen:
 
 ---
 
-## Step 2: Check for Root
+## Step 2: Autonomous Mode
 
-Check whether the current user is root.
+Ask:
 
-If they are running as root, explain clearly:
-
-> You're running as root. The board CLIs — Claude Code, Codex, Qwen and others — refuse to run in full-auto mode as root. It's a safety check baked into the CLIs themselves. We need to create a dedicated non-root user to run the board agents.
+> Do you want any of your board agents to run autonomously — meaning they execute without you having to approve each action? This is what makes reviews run unattended in the background while you work on something else.
 >
-> What would you like to call this user? (The default is `llmuser`)
+> If yes, there are a few things to sort out depending on your setup. If no, agents will pause and ask for approval at each step — slower, but you stay in control of every action.
+
+If they say no — note that agents will run in interactive mode and move on. No user setup needed.
+
+If they say yes — check whether the current user is root.
+
+If they are not root, autonomous mode will work as-is. Note it and move on.
+
+If they are root, explain:
+
+> There's one thing to sort out first. The frontier CLIs — Claude Code, Codex, Qwen and others — have a safety check baked in that prevents them from running autonomously as root. It's not a FrontierBoard limitation, it's the CLIs protecting you from a fully autonomous process with root-level access to your entire system.
+>
+> The fix is a dedicated board user — a non-root account the agents run as. Your credentials stay on your main account and get copied across. Takes about 2 minutes to set up.
+>
+> What would you like to call this user? The default is `llmuser`.
 
 Create the user with a home directory and bash shell. Configure sudoers so the current user can run commands as the board user without a password prompt. Note the board user name — all agent invocation commands will use it.
-
-If they are not root, no board user is needed. Note that agents will run as the current user.
 
 ---
 
@@ -142,7 +152,7 @@ Create the agent directory inside `board/`. The name should reflect the agent's 
 
 Inside each agent directory, create:
 - An inbox folder
-- An outbox folder  
+- An outbox folder
 - A learnings folder
 - A settings bubble for their CLI (see below)
 - A CLAUDE.md that defines who they are
@@ -150,7 +160,7 @@ Inside each agent directory, create:
 
 **Settings bubble:**
 
-This is the most important structural detail. Each agent directory gets a settings file for their specific CLI. When that CLI runs from this directory, it finds this file first and stops walking up the tree. The agent's behaviour is fully isolated.
+This is the most important structural detail. Each agent directory gets a settings file for their specific CLI. When that CLI runs from this directory, it finds this file first and stops walking up the tree. The agent's behaviour is fully isolated from your interactive session and from every other agent.
 
 For a Claude agent, create a `.claude` folder containing a `settings.json` that allows all tools without prompting and sets the model. Do not put credentials here — only behaviour settings.
 
@@ -158,7 +168,7 @@ For a Codex agent, create a `.codex` folder containing a `config.toml` that sets
 
 For a Qwen agent, create a `.qwen` folder containing a `settings.json` that sets yolo mode and loads CLAUDE.md as the context file.
 
-For other CLIs, ask the user where that CLI looks for a local settings file, then create it with the equivalent of "full auto, no prompts."
+For other CLIs, ask the user where that CLI looks for a local settings file, then create it with the equivalent of "full auto, no prompts." Only configure autonomous settings if the user chose autonomous mode in Step 2.
 
 **CLAUDE.md for each agent:**
 
@@ -192,12 +202,13 @@ Create `board/BOARD.md`. This is the source of truth for the board — written b
 
 It should contain:
 - The project name and path
+- Whether agents run autonomously or interactively
 - The board user if one was created (otherwise the current user)
 - For each agent: their name, their directory, their CLI, their model, their role description, and the exact command to invoke them for a review
 - The parallelism pattern — how to run multiple agents at once and wait for all of them
 - A note on settings isolation — confirming each agent has their own settings bubble
 
-Write the invocation commands using the board user if one exists (`sudo -n -u boarduser -- ...`), otherwise the current user. Include the correct flags for full-auto unattended operation for each CLI.
+Write the invocation commands using the board user if one exists (`sudo -n -u boarduser -- ...`), otherwise the current user. Include the correct flags for autonomous operation if the user chose that mode.
 
 ---
 
@@ -236,6 +247,6 @@ Tell the user their board is ready. Name each agent, their CLI, and their role. 
 
 Then offer:
 
-> Do you need help setting up any CLIs you didn't configure today, or would you like to add more agents? Type `/new-agent` any time to add one. 
+> Do you need help setting up any CLIs you didn't configure today, or would you like to add more agents? Type `/new-agent` any time to add one.
 >
 > To run your first real review, just tell me what you want the board to look at — or type `/brief` to set the context explicitly first.
