@@ -1,8 +1,20 @@
 # FrontierBoard
 
+![FrontierBoard — Lawyers without a courtroom](assets/banner.png)
+
 **A governance board composed of frontier model agents, dropped into any project, pointed at anything.**
 
-Read this repo in under 5 minutes. No code to run. No dependencies to install beyond the CLIs you already use. Just Claude Code and 7 files — and a board that reviews anything you put in front of it.
+---
+
+```mermaid
+graph TD
+    A[clone repo] --> B[run claude]
+    B --> C[type /setup]
+    C --> D[Claude interviews you]
+    D --> E[board is built]
+    E --> F[tell Claude what to review]
+    F --> G[reports in your outbox]
+```
 
 ---
 
