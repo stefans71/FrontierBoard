@@ -1,0 +1,18 @@
+# Generated at setup — lives locally, not committed
+board/*/contexts/
+board/*/inbox/
+board/*/outbox/
+board/*/learnings/
+board/BOARD.md
+board/REVIEW-LOG.md
+
+# Keep directory structure
+!board/.gitkeep
+
+# Environment and credentials — never committed
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
