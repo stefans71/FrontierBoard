@@ -10,6 +10,8 @@ The board has no fixed domain. It reviews whatever the user puts in front of it.
 
 **When the user asks you to review something in plain language** — detect what kind of review is needed, check whether a matching context exists in `board/contexts/`, either activate it or write a new one, populate each agent's inbox, run the agents, collect and synthesise the reports.
 
+**When the user types `/project-init`** — read `.claude/skills/project-init/SKILL.md` and follow it.
+
 **When the user types `/setup`** — read `.claude/skills/setup/SKILL.md` and follow it.
 
 **When the user types `/new-agent`** — read `.claude/skills/new-agent/SKILL.md` and follow it.

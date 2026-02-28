@@ -31,8 +31,8 @@ The board has no fixed domain. Point it at code, architecture, a business decisi
 You need Claude Code. Everything else gets sorted during setup.
 
 ```bash
-git clone https://github.com/your-org/frontierboard
-cd frontierboard
+git clone https://github.com/stefans71/FrontierBoard
+cd FrontierBoard
 claude
 ```
 
@@ -44,15 +44,33 @@ The whole thing takes about 10 minutes. You end up with a working board tailored
 
 ---
 
-## Adding to an Existing Project
+## Two Ways to Use FrontierBoard
+
+### Just the board
+
+Clone FrontierBoard, run Claude from inside it, type `/setup`. Claude asks for the path to the project the board will review, reads what's there, builds the agents. The board installs into `[your-project]/.board/` — separate from your project, gitignored.
 
 ```bash
-cp -r frontierboard/board ./board
-cp -r frontierboard/.claude ./.claude
+git clone https://github.com/stefans71/FrontierBoard
+cd FrontierBoard
 claude
 ```
 
 Type `/setup`.
+
+### Filing cabinet + board (recommended for new projects)
+
+Use `/project-init` first. It interviews you, writes the filing cabinet (`CLAUDE.md`, `SPEC.md`, `tasks.md`, `settings.json`), then optionally wires in the board. Everything ends up in the right place without touching files that already exist.
+
+```bash
+git clone https://github.com/stefans71/FrontierBoard
+cd FrontierBoard
+claude
+```
+
+Type `/project-init`.
+
+Claude asks for your project path, detects whether it's new or existing, and takes the right path from there. If you add the board, it installs into `[your-project]/.board/` and the bridge is wired so your project Claude session can request reviews without opening a second terminal.
 
 ---
 
@@ -94,6 +112,7 @@ The repo stays minimal. Your board is yours.
 
 | Command | What it does |
 |---------|-------------|
+| `/project-init` | Interviews you, builds the filing cabinet (CLAUDE.md, SPEC.md, tasks.md, settings.json), optionally wires in the board — works for new and existing projects |
 | `/setup` | Builds your board from scratch — interactive, conversational, no assumptions |
 | `/new-agent` | Adds a new agent — same conversational flow, handles CLI setup if needed |
 | `/brief` | Sets context for an upcoming review — detects domain, writes or activates context, populates inboxes |

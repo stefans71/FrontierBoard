@@ -11,15 +11,51 @@ When something is missing or broken, fix it. Don't tell the user to go fix it th
 
 ---
 
-## Step 1: Welcome and Orient
+## Step 1: Welcome and Get the Project Path
 
-Introduce what's about to happen:
+Introduce what's about to happen, then ask for the project path immediately:
 
-> Welcome to Board of Governance setup. I'm going to ask you a few questions, then build your board from scratch — agents, identities, settings, the works. It takes about 10 minutes. You'll have a working board at the end that you can point at anything.
+> Welcome to Board of Governance setup. Before anything else — what's the path to the project this board will review? (e.g. `~/projects/my-app`)
+>
+> If you haven't created the directory yet, tell me where you want it and I'll create it.
+
+Once you have the path, expand it to an absolute path and verify it exists:
+
+```bash
+PROJ=$(eval echo [path])
+ls "$PROJ" 2>/dev/null && echo "exists" || echo "missing"
+```
+
+If missing, create it:
+```bash
+mkdir -p "$PROJ"
+```
+
+Note the absolute project path. Every subsequent file operation targets this path. The board will live at `$PROJ/.board/`.
 
 ---
 
-## Step 2: Autonomous Mode
+## Step 2: Read the Project
+
+Before asking the user anything else, read what's at the project path:
+
+```bash
+ls "$PROJ/CLAUDE.md" 2>/dev/null
+ls "$PROJ/SPEC.md" 2>/dev/null
+ls "$PROJ/tasks.md" 2>/dev/null
+ls "$PROJ/package.json" "$PROJ/pyproject.toml" "$PROJ/Gemfile" "$PROJ/go.mod" "$PROJ/Cargo.toml" 2>/dev/null
+cat "$PROJ/README.md" 2>/dev/null | head -60
+cat "$PROJ/CLAUDE.md" 2>/dev/null | head -40
+cat "$PROJ/SPEC.md" 2>/dev/null | head -40
+```
+
+From this, build a brief mental model of the project: what it is, what stack, how mature it is. You'll use this in Step 5 when writing agent contexts — agents who know they're reviewing a Node.js auth service write better findings than agents who know nothing.
+
+If the project directory is empty or near-empty, note it. You'll tell the user the board is ready to review future work even if nothing is there yet.
+
+---
+
+## Step 3: Autonomous Mode
 
 Ask:
 
@@ -42,16 +78,6 @@ If they are root, explain:
 > What would you like to call this user? The default is `llmuser`.
 
 Create the user with a home directory and bash shell. Configure sudoers so the current user can run commands as the board user without a password prompt. Note the board user name — all agent invocation commands will use it.
-
----
-
-## Step 3: Establish Project Context
-
-Ask explicitly — do not try to detect:
-
-> What is the name of this project? And what is the full path to the project root — the folder where this board will live?
-
-Confirm back what you heard before continuing.
 
 ---
 
@@ -138,17 +164,19 @@ If the user wants a CLI you don't recognise, ask them what CLI it uses, how it a
 
 > Just so you know — your credentials (API keys, OAuth tokens) live globally in your home directory. That's standard for all these CLIs and it only needs to happen once per machine. Each agent will have its own local settings file that controls how it behaves — that's separate from auth. So if you have three Codex agents, they all share one set of credentials but each has its own behaviour config.
 
-If a board user was created in Step 2, copy the relevant credential files from the current user's home directory into the board user's home directory for each provider being used. The board user needs to be able to authenticate when it runs the CLIs.
+If a board user was created in Step 3, copy the relevant credential files from the current user's home directory into the board user's home directory for each provider being used. The board user needs to be able to authenticate when it runs the CLIs.
 
 ---
 
 ## Step 7: Build the Agents
 
+All agent directories live inside `$PROJ/.board/board/`. The board itself lives at `$PROJ/.board/`.
+
 For each agent the user described in Step 5, create their directory and everything in it.
 
 **Directory structure for each agent:**
 
-Create the agent directory inside `board/`. The name should reflect the agent's role — lowercase, hyphens, no spaces. For example: `board/skeptic/`, `board/systems-thinker/`, `board/devil-s-advocate/`.
+Create the agent directory inside `$PROJ/.board/board/`. The name should reflect the agent's role — lowercase, hyphens, no spaces. For example: `$PROJ/.board/board/skeptic/`, `$PROJ/.board/board/systems-thinker/`.
 
 Inside each agent directory, create:
 - An inbox folder
@@ -168,25 +196,26 @@ For a Codex agent, create a `.codex` folder containing a `config.toml` that sets
 
 For a Qwen agent, create a `.qwen` folder containing a `settings.json` that sets yolo mode and loads CLAUDE.md as the context file.
 
-For other CLIs, ask the user where that CLI looks for a local settings file, then create it with the equivalent of "full auto, no prompts." Only configure autonomous settings if the user chose autonomous mode in Step 2.
+For other CLIs, ask the user where that CLI looks for a local settings file, then create it with the equivalent of "full auto, no prompts." Only configure autonomous settings if the user chose autonomous mode in Step 3.
 
 **CLAUDE.md for each agent:**
 
-Write this from the user's description of the agent's role and angle. This is the agent's identity — stable across all reviews, all domains.
+Write this from the user's description of the agent's role and angle, combined with what you learned about the project in Step 2. This is the agent's identity — stable across all reviews.
 
 It should cover:
 - Who they are and what their angle is on any question put before them
 - How they think — their reasoning style, what they always look for, what they tend to challenge
+- The project context: what they know they're reviewing (use what you read in Step 2)
 - Their output format — structured findings with severity, file or section reference, description, and recommended action
 - Their rules — write report first, blind review (no reading other reports before writing their own), no coordination with other agents
 
-Make it specific to what the user described. A skeptic should sound different from an optimist. A risk officer should ask different questions than a systems thinker. Write the identity from the description — don't use a generic template.
+Make it specific to what the user described and what the project is. A skeptic reviewing a fintech API should sound different from a skeptic reviewing a marketing strategy.
 
 **Contexts:**
 
-Based on the domain the user chose in Step 4, write context files for each agent.
+Based on the domain the user chose in Step 4, write context files for each agent. Use the project knowledge from Step 2 to make these specific — not generic.
 
-A context file goes in `board/{agent}/contexts/{domain}.md`. It tells the agent what lens to apply for this type of question — what to look for, what questions to ask, what a good finding looks like in this domain.
+A context file goes in `$PROJ/.board/board/{agent}/contexts/{domain}.md`. It tells the agent what lens to apply for this type of question — what to look for, what questions to ask, what a good finding looks like in this domain.
 
 If the user chose a specific domain (software, business, HR, finance), write one context per agent for that domain.
 
@@ -196,34 +225,77 @@ The context files are gitignored. They live locally. The user can generate new o
 
 ---
 
-## Step 8: Write BOARD.md
+## Step 8: Write Board Identity Files
 
-Create `board/BOARD.md`. This is the source of truth for the board — written by you, read by you in future sessions.
+**`$PROJ/.board/CLAUDE.md`**
 
-It should contain:
-- The project name and path
+This is the board orchestrator's identity. Write it now:
+
+```markdown
+# Board of Governance
+
+You are the Board of Governance orchestrator for [project name].
+
+## Project
+
+Path: [absolute project path]
+Stack: [what you found in Step 2, or "not yet determined"]
+What it is: [one sentence from README/CLAUDE.md, or "project is in early setup"]
+
+## Your Role
+
+Coordinate the board agents. Run briefs, collect reports, synthesise findings. You do not review work yourself — your agents do. Your job is to run them well and give the user a clear synthesis they can act on.
+
+## Agents
+
+[For each agent: name, directory, CLI, role in one sentence]
+
+## Running a Review
+
+To run all agents: see BOARD.md for invocation commands and parallelism pattern.
+To add an agent: /new-agent
+To set a review brief: /brief
+To run the board: /run
+```
+
+**`$PROJ/.board/board/BOARD.md`**
+
+This is the operational source of truth. Write it with:
+- The project name and absolute path
 - Whether agents run autonomously or interactively
 - The board user if one was created (otherwise the current user)
-- For each agent: their name, their directory, their CLI, their model, their role description, and the exact command to invoke them for a review
-- The parallelism pattern — how to run multiple agents at once and wait for all of them
-- A note on settings isolation — confirming each agent has their own settings bubble
+- For each agent: name, directory, CLI, model, role description, and the exact command to invoke them
+- The parallelism pattern — how to run all agents in parallel and wait for completion
+- The bridge pattern — how project Claude can request a board review:
 
-Write the invocation commands using the board user if one exists (`sudo -n -u boarduser -- ...`), otherwise the current user. Include the correct flags for autonomous operation if the user chose that mode.
+```markdown
+## Project Bridge
+
+To request a review from a project Claude session:
+1. Write a brief to `$PROJ/.board/board/inbox/[topic].md`
+2. Run: `cd $PROJ/.board && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"`
+3. Board runs all agents, writes synthesis to `$PROJ/.board/board/REVIEW-LOG.md`
+4. Read synthesis from the review log
+```
 
 ---
 
 ## Step 9: Update .gitignore
 
-Add to the project's `.gitignore` (create it if it doesn't exist):
+Add to `$PROJ/.gitignore` (create it if it doesn't exist):
 
-- All agent context files (the contexts folders)
-- All inbox contents (review briefs)
-- All outbox contents (review reports)
-- The BOARD.md file (contains local paths)
-- The REVIEW-LOG.md file
-- Any .env files
+```
+# FrontierBoard
+.board/board/*/contexts/
+.board/board/*/inbox/
+.board/board/*/outbox/
+.board/board/BOARD.md
+.board/board/REVIEW-LOG.md
+.env
+.env.*
+```
 
-The settings bubbles, agent CLAUDE.md files, and skill files should be committed — they contain no credentials and define the board's structure.
+The settings bubbles, agent CLAUDE.md files, and board skill files should be committed — they define the board's structure and contain no credentials.
 
 ---
 
@@ -233,7 +305,7 @@ Run a quick test to confirm the board actually works.
 
 Write a minimal test brief — one sentence asking each agent to confirm their identity, confirm they can write to their outbox, and report back with a score of 10/10.
 
-Copy it to every agent's inbox. Run each agent from their own directory. Check that a report appears in each agent's outbox.
+Copy it to every agent's inbox. Run each agent from their own directory inside `$PROJ/.board/`. Check that a report appears in each agent's outbox.
 
 If any agent fails, diagnose from the error output and fix it before declaring setup complete. Common causes: auth not copied to board user, settings bubble in wrong location, CLI not recognising its flags.
 
@@ -243,10 +315,10 @@ Don't tell the user it worked until you've confirmed every agent produced a repo
 
 ## Step 11: Done
 
-Tell the user their board is ready. Name each agent, their CLI, and their role. Show them the project path and board path.
+Tell the user their board is ready. Name each agent, their CLI, and their role. Show them the project path and board path (`$PROJ/.board/`).
 
 Then offer:
 
-> Do you need help setting up any CLIs you didn't configure today, or would you like to add more agents? Type `/new-agent` any time to add one.
+> To run your first real review, tell me what you want the board to look at — or type `/brief` to set the context explicitly first.
 >
-> To run your first real review, just tell me what you want the board to look at — or type `/brief` to set the context explicitly first.
+> From your project Claude session, you can also request a board review directly — I've written the bridge pattern into BOARD.md.
