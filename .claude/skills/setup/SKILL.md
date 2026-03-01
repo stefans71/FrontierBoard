@@ -57,27 +57,33 @@ If the project directory is empty or near-empty, note it. You'll tell the user t
 
 ## Step 3: Autonomous Mode
 
-Ask:
+Lead with the benefit before the technical explanation:
 
-> Do you want any of your board agents to run autonomously — meaning they execute without you having to approve each action? This is what makes reviews run unattended in the background while you work on something else.
->
-> If yes, there are a few things to sort out depending on your setup. If no, agents will pause and ask for approval at each step — slower, but you stay in control of every action.
+> Do you want your board agents to run unattended — meaning they work in the background while you do something else, and come back with their reports ready? Or would you prefer they pause and ask you before each action so you stay in control of every step?
 
-If they say no — note that agents will run in interactive mode and move on. No user setup needed.
+If they say no (or prefer to stay in control) — note that agents will run in interactive mode and move on. No user setup needed.
 
-If they say yes — check whether the current user is root.
+If they say yes (unattended/autonomous mode) — check whether the current user is root.
 
 If they are not root, autonomous mode will work as-is. Note it and move on.
 
-If they are root, explain:
+If they are root, explain the situation plainly before asking anything:
 
-> There's one thing to sort out first. The frontier CLIs — Claude Code, Codex, Qwen and others — have a safety check baked in that prevents them from running autonomously as root. It's not a FrontierBoard limitation, it's the CLIs protecting you from a fully autonomous process with root-level access to your entire system.
+> There's one thing to sort out first. The AI tools we'll be using — Claude Code, Codex, Qwen and others — have a built-in safety rule: they won't run fully unattended when the process has root (administrator) access to your machine. This isn't a FrontierBoard limitation — it's the tools protecting you from an autonomous process that could modify anything on your system.
 >
-> The fix is a dedicated board user — a non-root account the agents run as. Your credentials stay on your main account and get copied across. Takes about 2 minutes to set up.
+> The solution is a separate user account just for the board agents. Your own account stays untouched — your API keys and credentials just get copied across once. The board agents then run as that user. It takes about 2 minutes.
 >
-> What would you like to call this user? The default is `llmuser`.
+> What would you like to call this account? The default is `llmuser`.
 
-Create the user with a home directory and bash shell. Configure sudoers so the current user can run commands as the board user without a password prompt. Note the board user name — all agent invocation commands will use it.
+Create the user with a home directory and bash shell. Run these commands yourself — don't ask the user to run them:
+
+```bash
+useradd -m -s /bin/bash llmuser   # or whatever name they chose
+# Add sudoers entry so current user can run commands as the board user without password
+echo "$(whoami) ALL=(llmuser) NOPASSWD:ALL" >> /etc/sudoers.d/frontierboard
+```
+
+Note the board user name — all agent invocation commands will use it.
 
 ---
 
@@ -105,6 +111,10 @@ Note: write three contexts per agent later in Step 7.
 
 ## Step 5: Compose the Board
 
+Before asking how many agents, briefly explain what an agent is in this context — especially if the user seems unfamiliar with AI tooling:
+
+> Each board member is an AI agent — an independent AI that reviews your work and writes a report. They all see the same thing, but write their findings separately, so you get genuinely different perspectives rather than one consensus view.
+
 Ask:
 
 > How many agents do you want on your board? Two is the minimum for independent perspectives. Three gives you a tiebreaker. More than four gets noisy.
@@ -123,9 +133,13 @@ If the user isn't sure, offer a few patterns to spark ideas:
 >
 > Or describe something completely different — I'll write the role from your description.
 
-For each agent, also ask:
+For each agent, also ask which CLI they should use. Explain the choice before asking:
 
-> Which CLI would you like this agent to use — Claude, Codex, Qwen, or something else?
+> Each agent needs an AI tool to run on. A CLI (command-line interface) is just a program you run from the terminal — like Claude Code, Codex, or Qwen. They're made by different AI companies and each has slightly different strengths. I'll handle all the terminal commands; you just need to tell me which one you want.
+>
+> Which would you like for this agent — Claude (by Anthropic), Codex (by OpenAI), Qwen (by Alibaba), or something else?
+
+If the user isn't sure which to pick, suggest Claude Code as a default and briefly explain: "Claude Code is a good default if you already use Claude. If you have an OpenAI subscription or API key, Codex is a natural fit. Qwen has a generous free tier if you're just getting started."
 
 Note the provider for each agent. You will use this in Step 6 to set up CLIs and in Step 7 to create settings bubbles.
 
@@ -149,22 +163,68 @@ For anything missing or unauthenticated, ask:
 If yes, walk through it for that CLI:
 
 **Claude Code:**
-Check if Claude Code is installed. If not, tell the user the install command and ask them to run it, then confirm. For authentication, ask whether they have a Claude subscription or an API key. For subscription, walk them through running the auth command and completing the browser flow. For API key, ask them to paste it and store it securely in their environment.
+
+Check if Claude Code is installed (`which claude`). If not, tell the user:
+
+> I'll install Claude Code now. This is Anthropic's official command-line tool for running Claude.
+
+Run the install command yourself. If the environment doesn't allow it, give the user the exact command:
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+For authentication, explain the two options clearly — many users have a Claude subscription (claude.ai) but not an API key, and these are different things:
+
+> There are two ways to authenticate Claude Code:
+>
+> **Option A — Claude subscription (claude.ai/pro or max):** If you already pay for Claude at claude.ai, you can use that account directly. I'll run `claude` and it will open a browser login. You sign in with your claude.ai account and that's it.
+>
+> **Option B — API key:** If you want to use a separate API key (for billing control or if you don't have a subscription), go to console.anthropic.com → sign in → API Keys → Create Key. Paste the key here and I'll store it securely.
+>
+> Which do you have — a claude.ai subscription or an API key?
+
+If subscription: run `claude --dangerously-skip-permissions -p "echo hello"` and direct them to complete the browser flow.
+If API key: ask them to paste it and store it in their shell profile or the board user's environment.
 
 **Codex:**
-Check if the Codex CLI is installed. If not, direct them to the Codex GitHub repo for the current install command — package names change and you don't want to give them a stale one. For authentication, they need an OpenAI API key. Ask them to paste it. Store it in their environment or shell profile.
+
+Check if the Codex CLI is installed (`which codex`). If not:
+
+> I'll help you install Codex — OpenAI's command-line tool for running their models.
+>
+> You'll need an OpenAI account and an API key. If you don't have one:
+> 1. Go to platform.openai.com and sign up (or sign in)
+> 2. Click your profile → API Keys → Create new secret key
+> 3. Copy the key — you'll only see it once
+>
+> Once you have the key, I'll install Codex and configure it. Paste your OpenAI API key when you're ready.
+
+Direct them to the Codex GitHub repo for the current install command — don't hardcode a package name here as it can change. Once installed, store their API key in the environment.
 
 **Qwen:**
-Check if the Qwen CLI is installed. If not, direct them to the Qwen Code GitHub repo for the current install command. For authentication, they need a DashScope API key from the Bailian Coding Plan. Walk them through where to get it and how to store it.
+
+Check if the Qwen CLI is installed. If not:
+
+> I'll help you install Qwen Code — Alibaba's command-line AI tool. It has a free tier, which makes it a good option if you're just getting started.
+>
+> You'll need a DashScope API key from Alibaba's Bailian platform:
+> 1. Go to bailian.console.aliyun.com and sign up (free)
+> 2. Look for the "Bailian Coding Plan" — this gives you free API quota
+> 3. Under API Keys, create a new key and copy it
+>
+> Paste your DashScope API key here when you're ready, and I'll handle the install and configuration.
+
+Direct them to the Qwen Code GitHub repo for the current install command.
 
 **Other providers:**
 If the user wants a CLI you don't recognise, ask them what CLI it uses, how it authenticates, and what its settings file format is. Adapt the setup accordingly.
 
 **Auth and settings are separate — explain this once:**
 
-> Just so you know — your credentials (API keys, OAuth tokens) live globally in your home directory. That's standard for all these CLIs and it only needs to happen once per machine. Each agent will have its own local settings file that controls how it behaves — that's separate from auth. So if you have three Codex agents, they all share one set of credentials but each has its own behaviour config.
+> Just so you know — your credentials (API keys, login tokens) live globally in your home directory. That's standard for all these tools and it only needs to happen once per machine. Each agent will have its own separate settings file that controls how it behaves, but that's different from your credentials. If you have three Claude agents, they all share one login but each has its own personality and instructions.
 
-If a board user was created in Step 3, copy the relevant credential files from the current user's home directory into the board user's home directory for each provider being used. The board user needs to be able to authenticate when it runs the CLIs.
+If a board user was created in Step 3, copy the relevant credential files from the current user's home directory into the board user's home directory for each provider being used. Do this yourself — don't ask the user to do it.
 
 ---
 
@@ -315,10 +375,19 @@ Don't tell the user it worked until you've confirmed every agent produced a repo
 
 ## Step 11: Done
 
-Tell the user their board is ready. Name each agent, their CLI, and their role. Show them the project path and board path (`$PROJ/.board/`).
+Tell the user their board is ready. Name each agent, their CLI, and their role in plain language. Show them the project path and board path (`$PROJ/.board/`).
 
-Then offer:
+Then give them concrete next steps — don't leave them wondering what to type:
 
-> To run your first real review, tell me what you want the board to look at — or type `/brief` to set the context explicitly first.
+> Your board is ready. Here's how to use it:
 >
-> From your project Claude session, you can also request a board review directly — I've written the bridge pattern into BOARD.md.
+> **To start a review right now**, just describe what you want looked at:
+> - "Board, review the code I just wrote in `src/auth.ts`"
+> - "Board, look at this architecture decision: [paste your question]"
+> - "Board, review everything in `src/` for quality issues"
+>
+> **To set detailed context first** (recommended for complex reviews), type `/brief` — I'll ask you a few questions about what you want the board to focus on, then run it.
+>
+> **From your project's own Claude session**, you can also request a board review directly. The command is in BOARD.md — look for the "Project Bridge" section.
+>
+> What would you like the board to look at first?
