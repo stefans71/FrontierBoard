@@ -389,16 +389,28 @@ ls ~/.claude/frontier-board/.claude/skills/setup/SKILL.md 2>/dev/null
 If found, copy the board runtime into `$PROJ/.board/`:
 
 ```bash
-mkdir -p "$PROJ/.board"
-# Copy board identity and skills — not project-init or setup (bootstrap tools, not runtime)
+mkdir -p "$PROJ/.board/.claude/skills"
+mkdir -p "$PROJ/.board/board"
+
+# Copy board identity and all runtime skills — including setup (needed to configure agents)
+# Do NOT copy project-init (it's a bootstrap tool for this skill, not board runtime)
 cp [fb-path]/CLAUDE.md "$PROJ/.board/CLAUDE.md"
+cp -r [fb-path]/.claude/skills/setup "$PROJ/.board/.claude/skills/"
 cp -r [fb-path]/.claude/skills/brief "$PROJ/.board/.claude/skills/"
 cp -r [fb-path]/.claude/skills/run "$PROJ/.board/.claude/skills/"
 cp -r [fb-path]/.claude/skills/new-agent "$PROJ/.board/.claude/skills/"
-cp -r [fb-path]/.claude/skills/add-isolation "$PROJ/.board/.claude/skills/"
-mkdir -p "$PROJ/.board/board"
+ls [fb-path]/.claude/skills/add-isolation 2>/dev/null && cp -r [fb-path]/.claude/skills/add-isolation "$PROJ/.board/.claude/skills/" || true
 
-# Gitignore the board
+# Write a settings.json fence so the CLI stops here and doesn't walk up into the project's skills
+cat > "$PROJ/.board/.claude/settings.json" << 'EOF'
+{
+  "permissions": {
+    "deny": []
+  }
+}
+EOF
+
+# Gitignore board runtime state
 echo "" >> "$PROJ/.gitignore"
 echo "# FrontierBoard" >> "$PROJ/.gitignore"
 echo ".board/board/*/contexts/" >> "$PROJ/.gitignore"
@@ -408,20 +420,18 @@ echo ".board/board/BOARD.md" >> "$PROJ/.gitignore"
 echo ".board/board/REVIEW-LOG.md" >> "$PROJ/.gitignore"
 ```
 
-Update `$PROJ/.board/CLAUDE.md` to include the project path:
+Update `$PROJ/.board/CLAUDE.md` — prepend the project identity block before the existing FrontierBoard orchestrator content:
 
 ```markdown
-# Board of Governance
+# Board of Governance — [project name]
 
-You are the Board of Governance orchestrator for [project name].
+You are the orchestrator of a Board of Governance for [project name].
 
-## Project
-
-Path: [absolute project path]
+**Project path:** [absolute project path]
 
 ## Bridge
 
-Project Claude can request a review by writing a brief to `board/inbox/[topic].md` and running:
+To request a review from the project session:
 
 ```bash
 cd [absolute .board path] && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
@@ -429,16 +439,22 @@ cd [absolute .board path] && claude --dangerously-skip-permissions -p "read CLAU
 
 Synthesis is written to `board/REVIEW-LOG.md`.
 
-## Agents
+---
 
-_(Run /setup to configure agents.)_
+[rest of existing FrontierBoard CLAUDE.md content follows unchanged]
 ```
 
 Tell the user:
 
-> Board stub is in place at `.board/`. To configure your agents, open a Claude session from `.board/` and run `/setup` — it will read your project automatically.
+> Board is wired in at `.board/`. To configure your agents:
 >
-> Once set up, you can request a board review from your project session: write a brief to `.board/board/inbox/[topic].md` and ask me to run the board. I'll shell out, agents run in parallel, I read the synthesis back to you. One terminal, one session.
+> ```
+> cd [absolute .board path]
+> claude
+> /setup
+> ```
+>
+> Once set up, you can request a board review from your project session by writing a brief to `.board/board/inbox/[topic].md` and asking me to run the board. Agents run in parallel, synthesis comes back to `board/REVIEW-LOG.md`.
 
 If FrontierBoard is not found:
 
@@ -456,9 +472,17 @@ If **no:** Skip entirely.
 > - `CLAUDE.md` — project identity (~[X] lines)
 > - `SPEC.md` — architecture spec
 > - `tasks.md` — Phase 1: [N] tasks
-> [- `.board/` — board stub, gitignored (run /setup from there to configure agents)]
+> [- `.board/` — board wired in, gitignored]
 >
 > **Start a fresh Claude session from `[path]` before building.** This session is setup — it has all the interview context in its window. A fresh session loads only the filing cabinet, which is what you want.
+>
+> [If board was wired:]
+> **To configure your board agents:**
+> ```
+> cd [absolute .board path]
+> claude
+> /setup
+> ```
 >
 > Phase 1 complete when: [repeat exit criterion from tasks.md]
 
