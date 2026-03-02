@@ -15,20 +15,23 @@ When something is missing or broken, fix it. Don't tell the user to go fix it th
 
 These rules apply for the entire setup. Never break them.
 
-**You may write to:**
-- `$PROJ/.board/**` — this is FrontierBoard's exclusive territory
-- `$PROJ/.gitignore` — append only, never modify or delete existing lines
+**You may freely:**
+- Create and write anything inside `$PROJ/.board/**` — FrontierBoard's exclusive territory
+- Append to `$PROJ/.gitignore` — never modify or delete existing lines
+- Create **new** files and directories inside `$PROJ/.claude/skills/` — adding new skills doesn't touch existing config
+- Create **new** files and directories inside `$PROJ/container/skills/` — for NanoClaw integration
 
 **You may read but never modify:**
-- Everything else in `$PROJ/` — read to understand the project, never change it
+- `$PROJ/.claude/settings.json`, `$PROJ/CLAUDE.md`, `$PROJ/src/`, and all other existing project files — read to understand, never change
 
 **Never:**
-- Delete, overwrite, or rename any existing file outside `$PROJ/.board/`
-- Touch `$PROJ/.claude/`, `$PROJ/src/`, or any other project directory
+- Delete, overwrite, or rename any file that already exists outside `$PROJ/.board/`
 - Modify existing `.gitignore` entries — only append new ones
 - Require the user to create directories or write files — you do all of that
 
-If the project has no `.claude/` directory: that's fine. FrontierBoard works entirely inside `.board/`. Each board agent has its own isolated settings bubble inside its own directory. The root-level `.claude/` is irrelevant.
+**Key distinction:** creating a *new* file in a directory that already exists (e.g. `.claude/skills/board-review/SKILL.md` when `.claude/` already exists) is always safe. Only writing to *existing* files outside `.board/` is off-limits.
+
+If the project has no `.claude/` directory: FrontierBoard still works entirely inside `.board/`. You can create `.claude/skills/board-review/` as new directories without issue. The project doesn't need an existing Claude setup for FrontierBoard to install.
 
 ---
 
@@ -532,19 +535,78 @@ To trigger manually (for testing):
 
 **If `claude-project`:**
 
-The board can be triggered from any Claude session in that project using the bridge pattern. Add to `BOARD.md`:
+The existing project's Claude doesn't automatically know FrontierBoard exists. You need to tell it — by creating a skill file in the host project's `.claude/skills/` directory. Claude Code scans that directory on startup, so the skill is available immediately.
+
+This is a **new file in a new directory** — it never touches anything that already exists.
+
+1. Create `$PROJ/.claude/skills/board-review/SKILL.md`:
 
 ```markdown
-## Project Bridge
+---
+name: board-review
+description: Request a FrontierBoard review. Use when the user asks to "review", "get a second opinion on", "run the board on", or "have the board look at" something. Also use proactively when completing a significant change and a review would add value.
+---
 
-To request a review from a Claude session in this project:
-1. Write a brief to `[PROJ_PATH]/.board/board/inbox/request.md`
-2. Run: `cd [PROJ_PATH]/.board && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"`
-3. Board synthesises findings to `[PROJ_PATH]/.board/board/REVIEW-LOG.md`
-4. Read the synthesis
+# Board Review
 
-Tip: add a skill to your project's `.claude/skills/` that wraps steps 1–4.
+FrontierBoard is installed at [PROJ_PATH]/.board/ and provides independent
+multi-agent review. Use it when the user asks for a review, or when you judge
+that independent perspectives would meaningfully improve a decision or output.
+
+## How to trigger a review
+
+1. Write a brief to `[PROJ_PATH]/.board/board/inbox/request.md`. Include:
+   - What specifically is being reviewed (file paths, topic, decision)
+   - What questions the board should answer
+   - The domain: software / business / general
+
+2. Invoke the board:
+   ```bash
+   cd [PROJ_PATH]/.board && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
+   ```
+
+3. Wait for it to complete (agents run in parallel; typically 2–5 minutes).
+
+4. Read the synthesis:
+   ```
+   [PROJ_PATH]/.board/board/REVIEW-LOG.md
+   ```
+
+5. Summarise the key findings for the user. Highlight where agents agreed
+   and where they diverged — divergence is often the most useful signal.
+
+The user does not need to know the internal process.
+
+## When NOT to use it
+
+- For quick factual questions — answer directly
+- When the user just wants a fast check, not an independent review
+- If the board was already run on this topic recently (check REVIEW-LOG.md)
 ```
+
+Replace `[PROJ_PATH]` with the actual absolute project path.
+
+2. Add to `BOARD.md`:
+
+```markdown
+## Project Claude Integration
+
+FrontierBoard is integrated with the host project's Claude via a skill at:
+  [PROJ_PATH]/.claude/skills/board-review/SKILL.md
+
+The existing project's Claude will use this skill automatically when asked
+for a review. No manual bridge steps needed.
+
+To trigger manually (for testing or scripting):
+  echo "Review: [topic]" > [PROJ_PATH]/.board/board/inbox/request.md
+  cd [PROJ_PATH]/.board && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
+```
+
+3. Tell the user what changed:
+
+> FrontierBoard is now wired into your project's Claude. When you're working in this project and say "review this code" or "get a second opinion on this", Claude will know how to invoke the board and bring you back the synthesis. You don't need to do anything differently.
+>
+> The skill file I created is at `.claude/skills/board-review/SKILL.md` — it's safe to commit alongside your project.
 
 **If `standalone`:**
 
@@ -597,7 +659,10 @@ What should be committed (defines board structure, contains no credentials):
 - `$PROJ/.board/board/{agent}/CLAUDE.md` for each agent
 - `$PROJ/.board/board/{agent}/.claude/settings.json` (or equivalent) for each agent
 - `$PROJ/.board/.claude/skills/` — the board's own skills
+- `$PROJ/.claude/skills/board-review/` — the integration skill that tells the host project's Claude about the board
 - `$PROJ/container/skills/board-review/` — if NanoClaw integration was added
+
+These files contain no credentials and are safe to commit. They're what defines the integration — if someone clones the repo, they get a working board setup out of the box (minus credentials, which they provide during their own setup run).
 
 ---
 
