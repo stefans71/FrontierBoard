@@ -507,26 +507,76 @@ invoke the FrontierBoard bridge.
 The board lives at: [PROJ_PATH]/.board/
 The bridge script is at: [PROJ_PATH]/.board/bridge/run-review.sh
 
-Steps:
-1. Write the review request as a markdown brief (include: what to review,
-   what specific questions to answer, what domain — software/business/etc.)
-2. Run: `[PROJ_PATH]/.board/bridge/run-review.sh "[brief text or path]"`
-3. Wait for it to complete (may take a few minutes — agents are running)
-4. Read the synthesis from: [PROJ_PATH]/.board/board/REVIEW-LOG.md
-5. Summarise the key findings for the user in plain language
+## Timing warning
 
-The user does not need to know any of this is happening.
+Board reviews take 8–45 minutes depending on which agents are configured:
+- Claude Code and Qwen agents: ~8–12 min each
+- Codex (o4-series) agents: ~40 min each
+
+A board with mixed providers is bottlenecked by the slowest agent. Do NOT
+block on the bridge command — use the polling pattern below so the user
+receives progress updates and the connection stays alive.
+
+## Steps
+
+1. Write the review request as a markdown brief at
+   `[PROJ_PATH]/.board/board/inbox/request.md`. Include:
+   - What specifically is being reviewed (file paths, topic, decision)
+   - What questions the board should answer
+   - The domain: software / business / general
+
+2. Tell the user the review has started and give a realistic time estimate
+   based on which agents are on this board. Example:
+   "Starting board review. Claude and Qwen agents typically finish in
+   8–12 minutes; if Codex is on the board it may take up to 45 minutes.
+   I'll send you updates as agents complete."
+
+3. Start the bridge in the background:
+   ```bash
+   nohup [PROJ_PATH]/.board/bridge/run-review.sh > /tmp/board-bridge.log 2>&1 &
+   echo $! > /tmp/board-bridge.pid
+   ```
+
+4. Poll every 5 minutes until the review log appears:
+   ```bash
+   while [ ! -f "[PROJ_PATH]/.board/board/REVIEW-LOG.md" ] && \
+         kill -0 $(cat /tmp/board-bridge.pid 2>/dev/null) 2>/dev/null; do
+     sleep 300
+   done
+   ```
+   After each 5-minute sleep, send the user a brief status message so they
+   know it's still running: "Board still working — [N] min elapsed."
+   This keeps the NanoClaw connection alive during long Codex reviews.
+
+5. When the log appears, read it:
+   ```bash
+   cat [PROJ_PATH]/.board/board/REVIEW-LOG.md
+   ```
+
+6. Summarise the key findings for the user. Highlight where agents agreed
+   and where they diverged — divergence is often the most valuable signal.
+
+7. Clean up:
+   ```bash
+   rm -f /tmp/board-bridge.pid /tmp/board-bridge.log
+   ```
+
+The user does not need to know the internal mechanics — just keep them
+informed of progress and timing.
 ```
 
-Replace `[PROJ_PATH]` with the actual absolute path.
+Replace `[PROJ_PATH]` with the actual absolute path and `{skill-name}` with the chosen name.
 
-4. Tell the user clearly what just happened and what the flow looks like:
+4. Tell the user what the flow looks like, including timing:
 
-> I've wired FrontierBoard into NanoClaw. Here's how it works from your perspective:
+> I've wired FrontierBoard into NanoClaw. Here's how it works:
 >
 > You message NanoClaw: "Review the authentication code I just wrote."
-> NanoClaw passes it to the board, which runs [N] independent agents.
-> A few minutes later, NanoClaw sends you the synthesis — findings from every agent, with agreement and divergence highlighted.
+> NanoClaw starts the board and sends you a timing estimate straight away.
+> Every 5 minutes while agents are working, it sends you a brief update.
+> When all agents are done, NanoClaw sends the synthesis.
+>
+> Typical times: 10–15 minutes for Claude/Qwen-only boards. Up to 45 minutes if a Codex agent is on the board — it's thorough but slow.
 >
 > You don't need to interact with FrontierBoard directly at all.
 
@@ -595,6 +645,14 @@ FrontierBoard is installed at [PROJ_PATH]/.board/ and provides independent
 multi-agent review. Use it when the user asks for a review, or when you judge
 that independent perspectives would meaningfully improve a decision or output.
 
+## Timing
+
+Board reviews take 8–45 minutes depending on which agents are configured:
+- Claude Code and Qwen agents: ~8–12 min each
+- Codex (o4-series) agents: ~40 min each
+
+Use the polling pattern below — do not block on the bridge command.
+
 ## How to trigger a review
 
 1. Write a brief to `[PROJ_PATH]/.board/board/inbox/request.md`. Include:
@@ -602,22 +660,31 @@ that independent perspectives would meaningfully improve a decision or output.
    - What questions the board should answer
    - The domain: software / business / general
 
-2. Invoke the board:
+2. Tell the user the review is starting and give a timing estimate.
+
+3. Start the bridge in the background:
    ```bash
-   cd [PROJ_PATH]/.board && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
+   nohup cd [PROJ_PATH]/.board && claude --dangerously-skip-permissions \
+     -p "read CLAUDE.md then /run" > /tmp/board-bridge.log 2>&1 &
+   echo $! > /tmp/board-bridge.pid
    ```
 
-3. Wait for it to complete (agents run in parallel; typically 2–5 minutes).
+4. Poll every 5 minutes until the review log appears, writing a brief
+   status update to the user each cycle so the session stays alive:
+   ```bash
+   while [ ! -f "[PROJ_PATH]/.board/board/REVIEW-LOG.md" ] && \
+         kill -0 $(cat /tmp/board-bridge.pid 2>/dev/null) 2>/dev/null; do
+     sleep 300
+   done
+   ```
 
-4. Read the synthesis:
+5. Read and summarise the synthesis:
    ```
    [PROJ_PATH]/.board/board/REVIEW-LOG.md
    ```
+   Highlight where agents agreed and where they diverged.
 
-5. Summarise the key findings for the user. Highlight where agents agreed
-   and where they diverged — divergence is often the most useful signal.
-
-The user does not need to know the internal process.
+6. Clean up: `rm -f /tmp/board-bridge.pid /tmp/board-bridge.log`
 
 ## When NOT to use it
 
