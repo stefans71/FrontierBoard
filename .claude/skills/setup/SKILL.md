@@ -139,7 +139,7 @@ For each agent, also ask which CLI they should use. Explain the choice before as
 >
 > Which would you like for this agent — Claude (by Anthropic), Codex (by OpenAI), Qwen (by Alibaba), or something else?
 
-If the user isn't sure which to pick, suggest Claude Code as a default and briefly explain: "Claude Code is a good default if you already use Claude. If you have an OpenAI subscription or API key, Codex is a natural fit. Qwen has a generous free tier if you're just getting started."
+If the user isn't sure which to pick, suggest Claude Code as a default and briefly explain: "Claude Code is a good default — if you have a Claude Pro or Max subscription at claude.ai, there are no extra charges for using it here. Qwen is also a good starting point because it has a free tier. Codex uses OpenAI's API, which has separate pay-per-use billing — a ChatGPT subscription doesn't cover it automatically, so there's a bit more setup involved."
 
 Note the provider for each agent. You will use this in Step 6 to set up CLIs and in Step 7 to create settings bubbles.
 
@@ -184,38 +184,72 @@ For authentication, explain the two options clearly — many users have a Claude
 >
 > Which do you have — a claude.ai subscription or an API key?
 
-If subscription: run `claude --dangerously-skip-permissions -p "echo hello"` and direct them to complete the browser flow.
-If API key: ask them to paste it and store it in their shell profile or the board user's environment.
+If subscription: run `claude --dangerously-skip-permissions -p "echo hello"` and direct them to complete the browser flow. This is the preferred path — no per-use charges.
+
+If API key: explain billing before asking for the key:
+
+> Anthropic API keys are pay-per-use with no monthly cap by default. Before using one, please set a spend limit:
+>
+> 1. Go to console.anthropic.com → sign in → Settings → Billing → Spend limits
+> 2. Set a monthly limit (e.g. $10 is plenty for casual board use)
+>
+> Then go to API Keys → Create Key, copy it, and paste it here.
+
+If there's no spend limit option on their plan, strongly advise using the subscription path instead.
 
 **Codex:**
 
-Check if the Codex CLI is installed (`which codex`). If not:
+Check if the Codex CLI is installed (`which codex`). If not, install it. Direct them to the Codex GitHub repo for the current install command — don't hardcode a package name here as it can change.
 
-> I'll help you install Codex — OpenAI's command-line tool for running their models.
->
-> You'll need an OpenAI account and an API key. If you don't have one:
-> 1. Go to platform.openai.com and sign up (or sign in)
-> 2. Click your profile → API Keys → Create new secret key
-> 3. Copy the key — you'll only see it once
->
-> Once you have the key, I'll install Codex and configure it. Paste your OpenAI API key when you're ready.
+For authentication, first clarify which OpenAI product they have — these are common sources of confusion:
 
-Direct them to the Codex GitHub repo for the current install command — don't hardcode a package name here as it can change. Once installed, store their API key in the environment.
+> Before we set up Codex, I need to check which OpenAI product you have, because they're completely separate things with different billing:
+>
+> - **ChatGPT subscription** ($20/month at chat.openai.com) — this gives you access to the ChatGPT web interface and app. It does **not** automatically include API access.
+> - **OpenAI API key** (from platform.openai.com) — this is separate, pay-per-use billing. Each request costs a small amount based on how much text is processed. There's no monthly cap unless you set one yourself.
+>
+> Which do you have?
+
+**If they have a ChatGPT subscription only:**
+
+> A ChatGPT subscription doesn't include API access by default. To use Codex, you'd need to go to platform.openai.com and either:
+> - Check if your paid plan includes API credits (sign in → Billing → look for included credits)
+> - Or add a separate payment method for API usage
+>
+> API usage is charged per request — for typical board reviews it's usually pennies, but there's no monthly cap unless you set a spend limit yourself. Would you like to set that up, or would you prefer to use a different provider like Claude Code (which has a flat monthly subscription) or Qwen (which has a free tier)?
+
+Only proceed with API key setup if the user explicitly wants to. If they do:
+
+> **Important before you get a key:** OpenAI API billing is pay-per-use with no monthly cap by default. A board review typically costs a few cents, but a runaway process could spend much more. Before using an API key, please set a spending limit:
+>
+> 1. Go to platform.openai.com → sign in
+> 2. Click your profile icon → Billing → Usage limits
+> 3. Set a monthly spend limit (e.g. $10 is plenty for casual board use)
+>
+> Once you've set a limit, go to API Keys → Create new secret key, copy it (you'll only see it once), and paste it here.
+
+If there is no spend limit feature available on their plan, tell them clearly:
+
+> OpenAI doesn't offer a spend limit option for your account type. This means API usage has no cap and unexpected charges are possible. I'd strongly recommend using Claude Code (flat monthly subscription, no per-use charges) or Qwen (free tier available) instead. Are you sure you want to continue with an API key?
+
+Store the API key in their environment only after they've confirmed they understand the billing and have set a limit if available.
 
 **Qwen:**
 
-Check if the Qwen CLI is installed. If not:
+Check if the Qwen CLI is installed. If not, install it. Direct them to the Qwen Code GitHub repo for the current install command.
 
-> I'll help you install Qwen Code — Alibaba's command-line AI tool. It has a free tier, which makes it a good option if you're just getting started.
->
-> You'll need a DashScope API key from Alibaba's Bailian platform:
-> 1. Go to bailian.console.aliyun.com and sign up (free)
-> 2. Look for the "Bailian Coding Plan" — this gives you free API quota
-> 3. Under API Keys, create a new key and copy it
->
-> Paste your DashScope API key here when you're ready, and I'll handle the install and configuration.
+For authentication:
 
-Direct them to the Qwen Code GitHub repo for the current install command.
+> Qwen uses a DashScope API key from Alibaba's Bailian platform. The good news: Qwen has a free tier through the "Bailian Coding Plan", which is enough for most board use without any charges.
+>
+> To get your key:
+> 1. Go to bailian.console.aliyun.com and sign up (it's free)
+> 2. Look for the "Bailian Coding Plan" and activate it — this gives you free API quota
+> 3. Go to API Keys, create a new key, and copy it
+>
+> Paste it here when you're ready.
+
+If they go beyond the free tier and onto paid usage, note that DashScope does have a quota/spend limit feature in the console — advise them to set one before using paid quota. If there is no limit feature available on their plan, advise them to stick to the free tier and not add payment details until they understand the per-use billing.
 
 **Other providers:**
 If the user wants a CLI you don't recognise, ask them what CLI it uses, how it authenticates, and what its settings file format is. Adapt the setup accordingly.
