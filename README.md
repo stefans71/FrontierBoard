@@ -50,9 +50,9 @@ cd FrontierBoard
 claude
 ```
 
-Everything the board installs — agent directories, the `.board/` folder, review logs — goes **one level up**, back into your project root. After setup you won't need to `cd FrontierBoard` again.
-
 Then type `/project-init` or `/setup` — see [Two Ways to Use It](#two-ways-to-use-frontierboard) to pick the right one.
+
+Everything the board installs — agent directories, the `.board/` folder, review logs — goes **one level up**, back into your project root. After setup you won't need to `cd FrontierBoard` again.
 
 ---
 
