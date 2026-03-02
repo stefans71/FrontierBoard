@@ -34,11 +34,23 @@ Point it at code, architecture, a business decision, a hiring brief, a financial
 
 You need Claude Code. Everything else gets sorted during setup.
 
+**Clone FrontierBoard into your project folder** — not alongside it, not somewhere separate. FrontierBoard is a tool that lives inside the project you're working on.
+
 ```bash
+# Step 1: Open a terminal in your project folder
+cd /path/to/your-project
+
+# Step 2: Clone FrontierBoard as a subfolder and gitignore it
 git clone https://github.com/stefans71/FrontierBoard
+echo "FrontierBoard/" >> .gitignore
+
+# Step 3: Run claude from inside FrontierBoard
+# (This is the only reason you cd here — so Claude picks up the skills)
 cd FrontierBoard
 claude
 ```
+
+Everything the board installs — agent directories, the `.board/` folder, review logs — goes **one level up**, back into your project root. After setup you won't need to `cd FrontierBoard` again.
 
 Then type `/project-init` or `/setup` — see [Two Ways to Use It](#two-ways-to-use-frontierboard) to pick the right one.
 
@@ -64,8 +76,8 @@ Your Claude detects whether this is a new project or an existing one and takes t
 Optionally wires in the board at the end. Everything lands in `[your-project]/.board/` — gitignored, separate from your project, no collisions.
 
 ```bash
-# From the FrontierBoard directory
-claude
+# From inside your project folder:
+cd FrontierBoard && claude
 # type /project-init
 ```
 
@@ -76,8 +88,8 @@ claude
 Already have your project set up? Your Claude interviews you, reads your project, builds the agents, and installs the board into `[your-project]/.board/`.
 
 ```bash
-# From the FrontierBoard directory
-claude
+# From inside your project folder:
+cd FrontierBoard && claude
 # type /setup
 ```
 
