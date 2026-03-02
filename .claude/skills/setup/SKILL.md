@@ -99,45 +99,57 @@ Ask:
 > 4. Finance — investments, budgets, financial models
 > 5. Mix of everything — I'll figure it out as I go
 
-If they pick 1–4, note the primary domain. You will write one context per agent for this domain during agent setup.
+Note the answer. You'll use it in Step 5 to give the user domain-relevant role suggestions, and in Step 7 to write the right context files.
 
-If they pick 5, tell them:
+If they pick 1–4, note the primary domain.
 
-> No problem. I'll write three starter contexts for each agent — software, business, and a general-purpose one — so you have something to work with immediately. You can generate new contexts any time by describing what you want to review.
+If they pick 5, tell them briefly how that works before moving on — don't leave them wondering:
 
-Note: write three contexts per agent later in Step 7.
+> No problem. Here's how that works: each agent gets a stable thinking style (like "the skeptic" or "the systems thinker"), and I'll write separate context files for software, business, and general use. When you send a review request, the board orchestrator reads it and loads the right context automatically — so a code review gets the software lens and a business decision gets the business lens. You don't need to configure anything per review.
+
+Note: write three contexts per agent (software, business, general) later in Step 7.
 
 ---
 
 ## Step 5: Compose the Board
 
-Before asking how many agents, briefly explain what an agent is in this context — especially if the user seems unfamiliar with AI tooling:
+Before asking anything, briefly explain what an agent is and how thinking styles work — this prevents the confusion of trying to map abstract role names onto specific domains:
 
 > Each board member is an AI agent — an independent AI that reviews your work and writes a report. They all see the same thing, but write their findings separately, so you get genuinely different perspectives rather than one consensus view.
+>
+> Each agent has a **thinking style** — the way they approach any question. That's what stays stable. What changes per review is the **context**: I'll load a software lens for code reviews, a business lens for strategy questions, and so on. So when you're picking agents, think about *how* you want things questioned, not *what domain* they specialise in.
 
 Ask:
 
 > How many agents do you want on your board? Two is the minimum for independent perspectives. Three gives you a tiebreaker. More than four gets noisy.
 
-Then for each agent, ask in plain language:
+Then for each agent, ask about their thinking style. Frame the question based on what domain(s) they chose in Step 4:
 
-> Tell me about agent [number]. What's their role on the board — and what's their angle? You can describe them however feels natural. For example: "a rigorous skeptic who always looks for what's missing" or "a systems thinker who traces second-order consequences" or "a devil's advocate who challenges every assumption."
+**If they chose a specific domain (e.g. software):**
 
-If the user isn't sure, offer a few patterns to spark ideas:
-
-> Some common board compositions:
-> - Skeptic + Optimist + Pragmatist
-> - Architect + Challenger + Risk Officer
-> - Strategist + Operator + Devil's Advocate
-> - Domain Expert + Generalist + Contrarian
+> Tell me about agent [number]. What's their angle when reviewing [domain]? You can describe them however feels natural. For example:
+> - "Always looks for what could break or be exploited" ← good for security-focused software review
+> - "Asks whether this is the simplest solution that could work" ← good for architecture review
+> - "Traces what happens downstream when something changes" ← good for systems/integration review
+> - "Pushes back on every assumption — why are we doing it this way at all?"
 >
 > Or describe something completely different — I'll write the role from your description.
 
-For each agent, also ask which CLI they should use. Explain the choice before asking:
+**If they chose "mix of everything":**
 
-> Each agent needs an AI tool to run on. A CLI (command-line interface) is just a program you run from the terminal — like Claude Code, Codex, or Qwen. They're made by different AI companies and each has slightly different strengths. I'll handle all the terminal commands; you just need to tell me which one you want.
+> Tell me about agent [number]. What's their thinking style — how do they approach any question?
 >
-> Which would you like for this agent — Claude (by Anthropic), Codex (by OpenAI), Qwen (by Alibaba), or something else?
+> For mixed reviews, thinking styles work better than domain expertise, because the same style can be applied to code, strategy, or hiring decisions. Some examples:
+> - **The Skeptic** — challenges every assumption, asks "what could go wrong?" and "what are we not seeing?" Works for software (finds edge cases and failure modes), business (finds shaky assumptions), hiring (spots red flags).
+> - **The Systems Thinker** — traces how things connect and what the second-order effects are. Works for architecture (traces dependencies), strategy (traces market dynamics), org decisions (traces team dynamics).
+> - **The Pragmatist** — focuses on what's actually feasible given real constraints. Works for code (is this maintainable?), business (can we actually execute this?), finance (are these numbers realistic?).
+> - **The Contrarian** — argues the opposite position to stress-test the logic. Works for any domain.
+>
+> These are just starting points — describe what you want and I'll write it.
+
+After each agent's thinking style is confirmed, ask about CLI:
+
+> Which tool should this agent run on — Claude (by Anthropic), Codex (by OpenAI), Qwen (by Alibaba), or something else? I'll handle all the setup; you just need to pick a provider.
 
 If the user isn't sure which to pick, suggest Claude Code as a default and briefly explain: "Claude Code is a good default — if you have a Claude Pro or Max subscription at claude.ai, there are no extra charges for using it here. Qwen is also a good starting point because it has a free tier. Codex uses OpenAI's API, which has separate pay-per-use billing — a ChatGPT subscription doesn't cover it automatically, so there's a bit more setup involved."
 
@@ -294,28 +306,43 @@ For other CLIs, ask the user where that CLI looks for a local settings file, the
 
 **CLAUDE.md for each agent:**
 
-Write this from the user's description of the agent's role and angle, combined with what you learned about the project in Step 2. This is the agent's identity — stable across all reviews.
+Write this from the user's description of the agent's thinking style, combined with what you learned about the project in Step 2. This is the agent's identity — stable across all reviews, regardless of domain.
 
 It should cover:
-- Who they are and what their angle is on any question put before them
-- How they think — their reasoning style, what they always look for, what they tend to challenge
-- The project context: what they know they're reviewing (use what you read in Step 2)
-- Their output format — structured findings with severity, file or section reference, description, and recommended action
-- Their rules — write report first, blind review (no reading other reports before writing their own), no coordination with other agents
+- **Who they are**: their thinking style and what they always bring to any question — frame this as a cognitive approach, not a domain role. "Always looks for the failure mode no one's thought of" is better than "software security expert."
+- **How they think**: their reasoning style, what they instinctively question, what they tend to challenge, what they treat as a red flag
+- **The project context**: what they know they're reviewing (use what you read in Step 2) — this gives them grounding even before a brief arrives
+- **Their output format**: structured findings with severity, reference (file path, section, or topic), description, and recommended action
+- **Their rules**: write report first, blind review (no reading other reports before writing their own), no coordination with other agents, always load the context file from their inbox before starting
 
-Make it specific to what the user described and what the project is. A skeptic reviewing a fintech API should sound different from a skeptic reviewing a marketing strategy.
+The thinking style should read as domain-agnostic. A good CLAUDE.md for "The Skeptic" should make them equally useful reviewing a PR, a pricing decision, or a hiring scorecard — without needing to be rewritten for each.
 
 **Contexts:**
 
-Based on the domain the user chose in Step 4, write context files for each agent. Use the project knowledge from Step 2 to make these specific — not generic.
+Context files tell the agent what lens to apply for a specific type of review. The orchestrator loads the right context into the agent's inbox when a review is triggered.
 
-A context file goes in `$PROJ/.board/board/{agent}/contexts/{domain}.md`. It tells the agent what lens to apply for this type of question — what to look for, what questions to ask, what a good finding looks like in this domain.
+A context file goes in `$PROJ/.board/board/{agent}/contexts/{domain}.md`. It covers: what questions to ask in this domain, what a strong finding looks like here, what failure modes are common in this type of review.
 
-If the user chose a specific domain (software, business, HR, finance), write one context per agent for that domain.
+Write context files now based on the domain the user chose in Step 4:
+- If they chose a specific domain (software, business, HR, finance): write one context per agent for that domain.
+- If they chose "mix of everything": write three contexts per agent — `software.md`, `business.md`, and `general.md`.
 
-If the user chose "mix of everything," write three contexts per agent: software, business, and general-purpose.
+Use the project knowledge from Step 2 to make context files specific, not generic. A software context for a Node.js microservices project should mention async patterns, container boundaries, and API surface — not generic "check code quality."
 
-The context files are gitignored. They live locally. The user can generate new ones any time with `/brief`.
+The context files are gitignored. They live locally. The user can generate new or updated ones any time with `/brief`.
+
+**How the orchestrator uses contexts at runtime:**
+
+Write a note in the orchestrator's CLAUDE.md (Step 8) explaining this — the user doesn't need to configure it per review:
+
+When a review request arrives (from the user directly or via the bridge from NanoClaw), the orchestrator:
+1. Reads the review request and infers the domain (software, business, etc.)
+2. Copies the matching context file from each agent's `contexts/` folder into their `inbox/`
+3. Adds the brief to each agent's inbox
+4. Runs all agents in parallel
+5. Collects reports from each agent's outbox and synthesises them
+
+The user just describes what they want reviewed. The orchestrator handles context selection automatically.
 
 ---
 
@@ -342,11 +369,24 @@ Coordinate the board agents. Run briefs, collect reports, synthesise findings. Y
 
 ## Agents
 
-[For each agent: name, directory, CLI, role in one sentence]
+[For each agent: name, directory, CLI, thinking style in one sentence]
 
-## Running a Review
+## How Reviews Work
 
-To run all agents: see BOARD.md for invocation commands and parallelism pattern.
+When a review request arrives — from the user directly, or via the NanoClaw bridge — you:
+
+1. Read the request and decide which domain lens to apply (software, business, general, etc.)
+2. Copy the matching context file from each agent's `contexts/` folder into their `inbox/`
+3. Write the brief to each agent's `inbox/` (they must not see each other's inboxes)
+4. Run all agents in parallel (see BOARD.md for commands)
+5. Wait for all outbox reports to appear
+6. Synthesise all reports into a single finding set, noting where agents agreed and where they diverged
+7. Write synthesis to `board/REVIEW-LOG.md`
+
+The user does not need to specify which context to use — you infer it from the review request.
+
+## Commands
+
 To add an agent: /new-agent
 To set a review brief: /brief
 To run the board: /run
