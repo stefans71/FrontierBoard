@@ -479,7 +479,19 @@ exec claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
 
 Make it executable: `chmod +x $PROJ/.board/bridge/run-review.sh`
 
-3. Write a NanoClaw skill that tells NanoClaw Claude how to invoke the bridge. Create `$PROJ/container/skills/board-review/SKILL.md`:
+3. Write a NanoClaw skill that tells NanoClaw Claude how to invoke the bridge.
+
+First check whether `board-review` is already taken in the NanoClaw skills directory:
+
+```bash
+ls "$PROJ/container/skills/board-review/SKILL.md" 2>/dev/null && echo "exists" || echo "free"
+```
+
+- If free: use `board-review` as the skill name.
+- If exists and contains FrontierBoard content: offer to update it (same rule as the `claude-project` path above).
+- If exists and is unrelated: use `frontierboard-review` as the skill name.
+
+Create `$PROJ/container/skills/{skill-name}/SKILL.md`:
 
 ```markdown
 ---
@@ -535,15 +547,45 @@ To trigger manually (for testing):
 
 **If `claude-project`:**
 
-The existing project's Claude doesn't automatically know FrontierBoard exists. You need to tell it — by creating a skill file in the host project's `.claude/skills/` directory. Claude Code scans that directory on startup, so the skill is available immediately.
+The existing project's Claude doesn't automatically know FrontierBoard exists. Wire it in by creating a skill file in `.claude/skills/`. Claude Code scans that directory on startup, so the skill is available immediately.
 
-This is a **new file in a new directory** — it never touches anything that already exists.
+**First — check whether the skill name is already taken:**
 
-1. Create `$PROJ/.claude/skills/board-review/SKILL.md`:
+```bash
+ls "$PROJ/.claude/skills/board-review/SKILL.md" 2>/dev/null && echo "exists" || echo "free"
+```
+
+Three outcomes:
+
+**A) Path is free** — create the skill as normal. Go to step 1 below.
+
+**B) Path exists and contains FrontierBoard content** — check whether it's an older install:
+
+```bash
+grep -l "FrontierBoard" "$PROJ/.claude/skills/board-review/SKILL.md" 2>/dev/null
+```
+
+If it matches, offer the user a choice:
+
+> There's already a FrontierBoard board-review skill at `.claude/skills/board-review/SKILL.md`. It looks like a previous install. Would you like me to update it to the current version, or leave it as-is?
+
+If they say update: overwrite it (this is the one case where overwriting an existing file outside `.board/` is permitted — it's a previous FrontierBoard file, not the user's own work). If they say leave it: note the existing path and skip to the BOARD.md step.
+
+**C) Path exists but is NOT a FrontierBoard file** — the project already has a `board-review` skill for something else. Do not touch it. Use `frontierboard-review` as the skill name instead:
+
+```bash
+# Use frontierboard-review as the skill directory name
+SKILL_NAME="frontierboard-review"
+SKILL_DIR="$PROJ/.claude/skills/$SKILL_NAME"
+```
+
+Remember the skill name chosen — you'll need it for BOARD.md and for the user notification.
+
+**1. Write the skill file** at `$PROJ/.claude/skills/{skill-name}/SKILL.md`:
 
 ```markdown
 ---
-name: board-review
+name: {skill-name}
 description: Request a FrontierBoard review. Use when the user asks to "review", "get a second opinion on", "run the board on", or "have the board look at" something. Also use proactively when completing a significant change and a review would add value.
 ---
 
@@ -584,29 +626,42 @@ The user does not need to know the internal process.
 - If the board was already run on this topic recently (check REVIEW-LOG.md)
 ```
 
-Replace `[PROJ_PATH]` with the actual absolute project path.
+Replace `[PROJ_PATH]` with the actual absolute project path and `{skill-name}` with the chosen name.
 
-2. Add to `BOARD.md`:
+**2. Add to `BOARD.md`:**
 
 ```markdown
 ## Project Claude Integration
 
-FrontierBoard is integrated with the host project's Claude via a skill at:
-  [PROJ_PATH]/.claude/skills/board-review/SKILL.md
+FrontierBoard is integrated with the host project's Claude via:
+  [PROJ_PATH]/.claude/skills/{skill-name}/SKILL.md
 
-The existing project's Claude will use this skill automatically when asked
-for a review. No manual bridge steps needed.
+The project's Claude will use this skill automatically when asked for a review.
+Trigger phrase: "/{skill-name}" or natural language ("review xyz", "get a second opinion on xyz")
 
 To trigger manually (for testing or scripting):
   echo "Review: [topic]" > [PROJ_PATH]/.board/board/inbox/request.md
   cd [PROJ_PATH]/.board && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
 ```
 
-3. Tell the user what changed:
+**3. Tell the user explicitly what was done and how to use it** — always do this, regardless of which path (A/B/C) was taken:
 
-> FrontierBoard is now wired into your project's Claude. When you're working in this project and say "review this code" or "get a second opinion on this", Claude will know how to invoke the board and bring you back the synthesis. You don't need to do anything differently.
+> I've added FrontierBoard integration to your project's Claude.
 >
-> The skill file I created is at `.claude/skills/board-review/SKILL.md` — it's safe to commit alongside your project.
+> **What I created:** `.claude/skills/{skill-name}/SKILL.md`
+>
+> **How to use it:** Open Claude Code from your project directory (`{PROJ_PATH}`) and say something like:
+> - "Review the code in `src/auth.ts`"
+> - "Get a second opinion on this architecture decision"
+> - "/{skill-name}" to trigger it explicitly
+>
+> Claude will run the board, wait for the agents to finish, and summarise the findings for you. The whole process takes 2–5 minutes depending on what's being reviewed.
+>
+> **The skill file is safe to commit** — it contains no credentials, just instructions. Anyone who clones your repo gets the board integration working immediately.
+
+If the skill was renamed to `frontierboard-review` (path C), add:
+
+> Note: I used the name `frontierboard-review` instead of `board-review` because your project already has a `board-review` skill for something else. Use `/frontierboard-review` to trigger it explicitly, or just describe what you want reviewed in plain language.
 
 **If `standalone`:**
 
