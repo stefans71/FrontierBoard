@@ -11,15 +11,38 @@ When something is missing or broken, fix it. Don't tell the user to go fix it th
 
 ---
 
-## Step 1: Welcome and Get the Project Path
+## Host Project Safety Rules — Read Before Starting
 
-Introduce what's about to happen, then ask for the project path immediately:
+These rules apply for the entire setup. Never break them.
 
-> Welcome to Board of Governance setup. Before anything else — what's the path to the project this board will review? (e.g. `~/projects/my-app`)
+**You may write to:**
+- `$PROJ/.board/**` — this is FrontierBoard's exclusive territory
+- `$PROJ/.gitignore` — append only, never modify or delete existing lines
+
+**You may read but never modify:**
+- Everything else in `$PROJ/` — read to understand the project, never change it
+
+**Never:**
+- Delete, overwrite, or rename any existing file outside `$PROJ/.board/`
+- Touch `$PROJ/.claude/`, `$PROJ/src/`, or any other project directory
+- Modify existing `.gitignore` entries — only append new ones
+- Require the user to create directories or write files — you do all of that
+
+If the project has no `.claude/` directory: that's fine. FrontierBoard works entirely inside `.board/`. Each board agent has its own isolated settings bubble inside its own directory. The root-level `.claude/` is irrelevant.
+
+---
+
+## Step 1: Welcome, Detect Integration Mode, Get the Project Path
+
+Introduce what's about to happen:
+
+> Welcome to Board of Governance setup. I'll set up a board of independent AI reviewers for your project. I do all the file and directory work — I'll only pause when I genuinely need something from you, like an API key.
+>
+> First: what's the path to the project this board will review? (e.g. `~/projects/my-app`)
 >
 > If you haven't created the directory yet, tell me where you want it and I'll create it.
 
-Once you have the path, expand it to an absolute path and verify it exists:
+Once you have the path, expand it and check what's there:
 
 ```bash
 PROJ=$(eval echo [path])
@@ -31,7 +54,25 @@ If missing, create it:
 mkdir -p "$PROJ"
 ```
 
-Note the absolute project path. Every subsequent file operation targets this path. The board will live at `$PROJ/.board/`.
+**Detect integration mode** — check silently, don't ask the user:
+
+```bash
+# Is this a NanoClaw project?
+ls "$PROJ/src/index.ts" "$PROJ/container/build.sh" "$PROJ/groups/" 2>/dev/null
+# Does it have any Claude setup?
+ls "$PROJ/.claude/" 2>/dev/null
+# Is it a git repo?
+git -C "$PROJ" rev-parse --git-dir 2>/dev/null
+```
+
+Set `INTEGRATION_MODE` to one of:
+- `nanoclaw` — NanoClaw project detected (has `src/index.ts` + `container/build.sh` + `groups/`)
+- `claude-project` — has `.claude/` but not NanoClaw
+- `standalone` — no AI tooling found; board will run standalone
+
+Note the integration mode. You will use it in Step 8 when wiring up the review bridge.
+
+Note the absolute project path. Every subsequent file operation targets this path. The board lives at `$PROJ/.board/`.
 
 ---
 
@@ -346,11 +387,11 @@ The user just describes what they want reviewed. The orchestrator handles contex
 
 ---
 
-## Step 8: Write Board Identity Files
+## Step 8: Write Board Identity Files and Wire Integration
 
 **`$PROJ/.board/CLAUDE.md`**
 
-This is the board orchestrator's identity. Write it now:
+This is the board orchestrator's identity. Write it now using the template below. Fill in everything in brackets from what you've learned.
 
 ```markdown
 # Board of Governance
@@ -365,7 +406,9 @@ What it is: [one sentence from README/CLAUDE.md, or "project is in early setup"]
 
 ## Your Role
 
-Coordinate the board agents. Run briefs, collect reports, synthesise findings. You do not review work yourself — your agents do. Your job is to run them well and give the user a clear synthesis they can act on.
+Coordinate the board agents. Run briefs, collect reports, synthesise findings.
+You do not review work yourself — your agents do. Your job is to run them well
+and give the user a clear synthesis they can act on.
 
 ## Agents
 
@@ -373,17 +416,17 @@ Coordinate the board agents. Run briefs, collect reports, synthesise findings. Y
 
 ## How Reviews Work
 
-When a review request arrives — from the user directly, or via the NanoClaw bridge — you:
+When a review request arrives — from the user directly or via a project bridge:
 
 1. Read the request and decide which domain lens to apply (software, business, general, etc.)
 2. Copy the matching context file from each agent's `contexts/` folder into their `inbox/`
-3. Write the brief to each agent's `inbox/` (they must not see each other's inboxes)
-4. Run all agents in parallel (see BOARD.md for commands)
+3. Write the brief to each agent's `inbox/` (agents must not see each other's inboxes)
+4. Run all agents in parallel (see BOARD.md for exact commands)
 5. Wait for all outbox reports to appear
-6. Synthesise all reports into a single finding set, noting where agents agreed and where they diverged
+6. Synthesise all reports into a single finding set, noting agreement and divergence
 7. Write synthesis to `board/REVIEW-LOG.md`
 
-The user does not need to specify which context to use — you infer it from the review request.
+The caller does not specify which context to use — infer it from the review request.
 
 ## Commands
 
@@ -398,38 +441,163 @@ This is the operational source of truth. Write it with:
 - The project name and absolute path
 - Whether agents run autonomously or interactively
 - The board user if one was created (otherwise the current user)
-- For each agent: name, directory, CLI, model, role description, and the exact command to invoke them
+- For each agent: name, directory, CLI, model, thinking style, and the exact command to invoke them
 - The parallelism pattern — how to run all agents in parallel and wait for completion
-- The bridge pattern — how project Claude can request a board review:
+- The bridge section (see below, varies by integration mode)
+
+---
+
+**Wire the integration bridge — based on the INTEGRATION_MODE detected in Step 1:**
+
+**If `nanoclaw`:**
+
+The user never manually triggers board reviews — NanoClaw Claude handles it. Wire this up now:
+
+1. Create `$PROJ/.board/bridge/` directory.
+
+2. Write `$PROJ/.board/bridge/run-review.sh`:
+
+```bash
+#!/usr/bin/env bash
+# Called by NanoClaw IPC handler when a board review is requested.
+# Usage: run-review.sh "Brief text or path to brief file"
+set -euo pipefail
+BOARD_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+BRIEF="${1:-}"
+if [ -z "$BRIEF" ]; then
+  echo "Usage: run-review.sh <brief>" >&2
+  exit 1
+fi
+mkdir -p "$BOARD_DIR/board/inbox"
+echo "$BRIEF" > "$BOARD_DIR/board/inbox/request.md"
+cd "$BOARD_DIR"
+exec claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
+```
+
+Make it executable: `chmod +x $PROJ/.board/bridge/run-review.sh`
+
+3. Write a NanoClaw skill that tells NanoClaw Claude how to invoke the bridge. Create `$PROJ/container/skills/board-review/SKILL.md`:
+
+```markdown
+---
+name: board-review
+description: Request a board review via FrontierBoard. Use when asked to "review", "get a second opinion on", or "run the board on" something.
+---
+
+# Board Review
+
+When the user asks for a board review, write their request as a brief and
+invoke the FrontierBoard bridge.
+
+The board lives at: [PROJ_PATH]/.board/
+The bridge script is at: [PROJ_PATH]/.board/bridge/run-review.sh
+
+Steps:
+1. Write the review request as a markdown brief (include: what to review,
+   what specific questions to answer, what domain — software/business/etc.)
+2. Run: `[PROJ_PATH]/.board/bridge/run-review.sh "[brief text or path]"`
+3. Wait for it to complete (may take a few minutes — agents are running)
+4. Read the synthesis from: [PROJ_PATH]/.board/board/REVIEW-LOG.md
+5. Summarise the key findings for the user in plain language
+
+The user does not need to know any of this is happening.
+```
+
+Replace `[PROJ_PATH]` with the actual absolute path.
+
+4. Tell the user clearly what just happened and what the flow looks like:
+
+> I've wired FrontierBoard into NanoClaw. Here's how it works from your perspective:
+>
+> You message NanoClaw: "Review the authentication code I just wrote."
+> NanoClaw passes it to the board, which runs [N] independent agents.
+> A few minutes later, NanoClaw sends you the synthesis — findings from every agent, with agreement and divergence highlighted.
+>
+> You don't need to interact with FrontierBoard directly at all.
+
+Add to `BOARD.md`:
+
+```markdown
+## NanoClaw Bridge
+
+FrontierBoard is integrated with NanoClaw. The user never invokes the board
+directly — NanoClaw Claude handles it via the board-review skill.
+
+Bridge script: [PROJ_PATH]/.board/bridge/run-review.sh
+NanoClaw skill: [PROJ_PATH]/container/skills/board-review/SKILL.md
+
+To trigger manually (for testing):
+  [PROJ_PATH]/.board/bridge/run-review.sh "Review [topic]"
+```
+
+**If `claude-project`:**
+
+The board can be triggered from any Claude session in that project using the bridge pattern. Add to `BOARD.md`:
 
 ```markdown
 ## Project Bridge
 
-To request a review from a project Claude session:
-1. Write a brief to `$PROJ/.board/board/inbox/[topic].md`
-2. Run: `cd $PROJ/.board && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"`
-3. Board runs all agents, writes synthesis to `$PROJ/.board/board/REVIEW-LOG.md`
-4. Read synthesis from the review log
+To request a review from a Claude session in this project:
+1. Write a brief to `[PROJ_PATH]/.board/board/inbox/request.md`
+2. Run: `cd [PROJ_PATH]/.board && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"`
+3. Board synthesises findings to `[PROJ_PATH]/.board/board/REVIEW-LOG.md`
+4. Read the synthesis
+
+Tip: add a skill to your project's `.claude/skills/` that wraps steps 1–4.
+```
+
+**If `standalone`:**
+
+The user invokes the board directly from the `.board/` directory. Add to `BOARD.md`:
+
+```markdown
+## Running a Review
+
+From the .board/ directory:
+  cd [PROJ_PATH]/.board
+  claude --dangerously-skip-permissions -p "review [topic]"
+
+Or use /brief to set context first, then /run.
 ```
 
 ---
 
 ## Step 9: Update .gitignore
 
-Add to `$PROJ/.gitignore` (create it if it doesn't exist):
+**Important: append only. Never modify or delete existing lines.**
 
-```
-# FrontierBoard
-.board/board/*/contexts/
-.board/board/*/inbox/
-.board/board/*/outbox/
-.board/board/BOARD.md
-.board/board/REVIEW-LOG.md
-.env
-.env.*
+Check what's already in `.gitignore` first:
+
+```bash
+cat "$PROJ/.gitignore" 2>/dev/null
 ```
 
-The settings bubbles, agent CLAUDE.md files, and board skill files should be committed — they define the board's structure and contain no credentials.
+Then append only the FrontierBoard entries that aren't already present. Use `grep` to check before appending each line. Create the file if it doesn't exist.
+
+```bash
+GITIGNORE="$PROJ/.gitignore"
+touch "$GITIGNORE"
+add_if_missing() {
+  grep -qxF "$1" "$GITIGNORE" || echo "$1" >> "$GITIGNORE"
+}
+# Add section header only if no FB entries exist yet
+grep -q "FrontierBoard" "$GITIGNORE" || echo "" >> "$GITIGNORE" && echo "# FrontierBoard" >> "$GITIGNORE"
+add_if_missing ".board/board/*/contexts/"
+add_if_missing ".board/board/*/inbox/"
+add_if_missing ".board/board/*/outbox/"
+add_if_missing ".board/board/BOARD.md"
+add_if_missing ".board/board/REVIEW-LOG.md"
+add_if_missing ".board/bridge/"
+```
+
+Do not add `.env` or `.env.*` — those belong to the project, not to FrontierBoard.
+
+What should be committed (defines board structure, contains no credentials):
+- `$PROJ/.board/CLAUDE.md`
+- `$PROJ/.board/board/{agent}/CLAUDE.md` for each agent
+- `$PROJ/.board/board/{agent}/.claude/settings.json` (or equivalent) for each agent
+- `$PROJ/.board/.claude/skills/` — the board's own skills
+- `$PROJ/container/skills/board-review/` — if NanoClaw integration was added
 
 ---
 
@@ -451,17 +619,39 @@ Don't tell the user it worked until you've confirmed every agent produced a repo
 
 Tell the user their board is ready. Name each agent, their CLI, and their role in plain language. Show them the project path and board path (`$PROJ/.board/`).
 
-Then give them concrete next steps — don't leave them wondering what to type:
+Then give concrete next steps that match the integration mode detected in Step 1. Do not give generic instructions — be specific about how this user's board gets triggered.
 
-> Your board is ready. Here's how to use it:
+**If `nanoclaw`:**
+
+> Your board is ready and wired into NanoClaw.
 >
-> **To start a review right now**, just describe what you want looked at:
-> - "Board, review the code I just wrote in `src/auth.ts`"
-> - "Board, look at this architecture decision: [paste your question]"
-> - "Board, review everything in `src/` for quality issues"
+> To request a review, just message NanoClaw the way you normally would:
+> - "Review the code I just pushed to src/auth.ts"
+> - "Get a second opinion on this architecture decision: [describe it]"
+> - "Run the board on everything in the payments module"
 >
-> **To set detailed context first** (recommended for complex reviews), type `/brief` — I'll ask you a few questions about what you want the board to focus on, then run it.
+> NanoClaw will pass it to the board, the agents will work independently, and NanoClaw will send you back the synthesis. You don't interact with FrontierBoard directly — it all happens in the background.
 >
-> **From your project's own Claude session**, you can also request a board review directly. The command is in BOARD.md — look for the "Project Bridge" section.
+> To set detailed context before a review (recommended for complex or unfamiliar topics), say "brief the board on [topic]" to NanoClaw first.
+
+**If `claude-project`:**
+
+> Your board is ready. To trigger a review from any Claude session in this project:
 >
+> Type `/board-review` or describe what you want reviewed. I'll write the brief and run the board.
+>
+> You can also trigger it directly from the command line — see the "Project Bridge" section in `.board/board/BOARD.md`.
+
+**If `standalone`:**
+
+> Your board is ready. To run a review:
+>
+> 1. Open a terminal and: `cd [PROJ_PATH]/.board`
+> 2. Run: `claude` (or `claude --dangerously-skip-permissions` for autonomous mode)
+> 3. Describe what you want reviewed, or type `/brief` to set context first, then `/run`
+>
+> The synthesis will appear in `.board/board/REVIEW-LOG.md`.
+
+Always end with:
+
 > What would you like the board to look at first?
