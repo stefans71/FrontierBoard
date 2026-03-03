@@ -474,7 +474,15 @@ If **no:** Skip entirely.
 > - `tasks.md` — Phase 1: [N] tasks
 > [- `.board/` — board wired in, gitignored]
 >
-> **Start a fresh Claude session from `[path]` before building.** This session is setup — it has all the interview context in its window. A fresh session loads only the filing cabinet, which is what you want.
+> **Commit the files before you start building:**
+> ```
+> cd [path]
+> git add .claude/settings.json SPEC.md tasks.md LEARNING.md
+> git commit -m "chore: add filing cabinet and project scaffold"
+> git push
+> ```
+>
+> **Then start a fresh Claude session from `[path]`.** This session is setup — it has all the interview context in its window. A fresh session loads only the filing cabinet, which is what you want.
 >
 > [If board was wired:]
 > **To configure your board agents:**
