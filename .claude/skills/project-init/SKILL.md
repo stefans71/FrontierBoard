@@ -372,55 +372,47 @@ After all files are written:
 
 > One last thing — do you want to add a Board of Governance to this project?
 >
-> The board runs parallel AI agents (skeptic, optimist, security reviewer, etc.) that independently review your work and give you a synthesis. It installs into `[path]/.board/` — separate from your project, gitignored, no context bleed.
+> The board runs parallel AI agents (skeptic, optimist, security reviewer, etc.) that independently review your work and give you a synthesis. It installs as a **sibling directory** next to your project — completely outside the project tree so the board's skills never collide with your project's skills.
 >
 > It's useful for architecture reviews, security checks before releases, or any decision you want a second opinion on.
 
 If **yes:**
 
+Derive the board path from the project path — sibling directory, same parent:
+
+```bash
+# Board lives next to the project, not inside it
+PROJ_NAME=$(basename "$PROJ")
+BOARD=$(dirname "$PROJ")/${PROJ_NAME}-board
+echo "Board will install at: $BOARD"
+```
+
 Check if FrontierBoard is available:
 
 ```bash
-# Check common install locations
 ls ~/frontier-board/.claude/skills/setup/SKILL.md 2>/dev/null
 ls ~/.claude/frontier-board/.claude/skills/setup/SKILL.md 2>/dev/null
 ```
 
-If found, copy the board runtime into `$PROJ/.board/`:
+If found, copy the board runtime into `$BOARD`:
 
 ```bash
-mkdir -p "$PROJ/.board/.claude/skills"
-mkdir -p "$PROJ/.board/board"
+mkdir -p "$BOARD/.claude/skills"
+mkdir -p "$BOARD/board"
 
 # Copy board identity and all runtime skills — including setup (needed to configure agents)
-# Do NOT copy project-init (it's a bootstrap tool for this skill, not board runtime)
-cp [fb-path]/CLAUDE.md "$PROJ/.board/CLAUDE.md"
-cp -r [fb-path]/.claude/skills/setup "$PROJ/.board/.claude/skills/"
-cp -r [fb-path]/.claude/skills/brief "$PROJ/.board/.claude/skills/"
-cp -r [fb-path]/.claude/skills/run "$PROJ/.board/.claude/skills/"
-cp -r [fb-path]/.claude/skills/new-agent "$PROJ/.board/.claude/skills/"
-ls [fb-path]/.claude/skills/add-isolation 2>/dev/null && cp -r [fb-path]/.claude/skills/add-isolation "$PROJ/.board/.claude/skills/" || true
-
-# Write a settings.json fence so the CLI stops here and doesn't walk up into the project's skills
-cat > "$PROJ/.board/.claude/settings.json" << 'EOF'
-{
-  "permissions": {
-    "deny": []
-  }
-}
-EOF
-
-# Gitignore board runtime state
-echo "" >> "$PROJ/.gitignore"
-echo "# FrontierBoard" >> "$PROJ/.gitignore"
-echo ".board/board/*/contexts/" >> "$PROJ/.gitignore"
-echo ".board/board/*/inbox/" >> "$PROJ/.gitignore"
-echo ".board/board/*/outbox/" >> "$PROJ/.gitignore"
-echo ".board/board/BOARD.md" >> "$PROJ/.gitignore"
-echo ".board/board/REVIEW-LOG.md" >> "$PROJ/.gitignore"
+# Do NOT copy project-init (bootstrap tool, not runtime)
+cp [fb-path]/CLAUDE.md "$BOARD/CLAUDE.md"
+cp -r [fb-path]/.claude/skills/setup "$BOARD/.claude/skills/"
+cp -r [fb-path]/.claude/skills/brief "$BOARD/.claude/skills/"
+cp -r [fb-path]/.claude/skills/run "$BOARD/.claude/skills/"
+cp -r [fb-path]/.claude/skills/new-agent "$BOARD/.claude/skills/"
+ls [fb-path]/.claude/skills/add-isolation 2>/dev/null && cp -r [fb-path]/.claude/skills/add-isolation "$BOARD/.claude/skills/" || true
 ```
 
-Update `$PROJ/.board/CLAUDE.md` — prepend the project identity block before the existing FrontierBoard orchestrator content:
+No settings.json fence needed — the board is outside the project tree entirely, so there is no tree-walk collision.
+
+Update `$BOARD/CLAUDE.md` — prepend the project identity block before the existing FrontierBoard orchestrator content:
 
 ```markdown
 # Board of Governance — [project name]
@@ -434,7 +426,7 @@ You are the orchestrator of a Board of Governance for [project name].
 To request a review from the project session:
 
 ```bash
-cd [absolute .board path] && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
+cd [absolute board path] && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
 ```
 
 Synthesis is written to `board/REVIEW-LOG.md`.
@@ -446,15 +438,15 @@ Synthesis is written to `board/REVIEW-LOG.md`.
 
 Tell the user:
 
-> Board is wired in at `.board/`. To configure your agents:
+> Board is at `[board path]/`. To configure your agents:
 >
 > ```
-> cd [absolute .board path]
+> cd [absolute board path]
 > claude
 > /setup
 > ```
 >
-> Once set up, you can request a board review from your project session by writing a brief to `.board/board/inbox/[topic].md` and asking me to run the board. Agents run in parallel, synthesis comes back to `board/REVIEW-LOG.md`.
+> Once set up, you can request a board review from your project session by writing a brief to `[board path]/board/inbox/[topic].md` and asking me to run the board. Agents run in parallel, synthesis comes back to `board/REVIEW-LOG.md`.
 
 If FrontierBoard is not found:
 
@@ -472,7 +464,7 @@ If **no:** Skip entirely.
 > - `CLAUDE.md` — project identity (~[X] lines)
 > - `SPEC.md` — architecture spec
 > - `tasks.md` — Phase 1: [N] tasks
-> [- `.board/` — board wired in, gitignored]
+> [- `[project-name]-board/` — board wired in at sibling path]
 >
 > **Do these steps in order:**
 >
