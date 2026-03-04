@@ -344,6 +344,22 @@ For a Claude agent, create a `.claude` folder containing a `settings.json` that 
 
 For a Codex agent, create a `.codex` folder containing a `config.toml` that sets approval policy to never and loads CLAUDE.md as the project context document. Include a brief developer instructions block pointing to CLAUDE.md for full SOPs.
 
+**Important — Codex invocation in BOARD.md:** When writing the invocation command for this agent in Step 8, you MUST use `codex exec`, not bare `codex`. The plain `codex` command opens a TUI (terminal user interface) that requires an interactive terminal — it will refuse to run as a subprocess and fail silently or crash. `codex exec` is the non-interactive subcommand designed for scripted use. Always write the invocation with this comment block above it so future users understand why the flag looks alarming:
+
+```bash
+# codex exec is the non-interactive subcommand — the default `codex` command is a
+# TUI app that requires an interactive terminal and cannot run as a subprocess.
+# --dangerously-bypass-approvals-and-sandbox skips the approval prompt, which is
+# required for autonomous subprocess execution. The agent runs from its own isolated
+# board directory with no access to your project, credentials, or system outside
+# that folder. This flag is a Codex CLI requirement, not a FrontierBoard security
+# decision — FrontierBoard never touches your API keys or credentials.
+sudo -u [board-user] codex exec --dangerously-bypass-approvals-and-sandbox \
+  "read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md"
+```
+
+Replace `[board-user]` with `llmuser` (or whatever the board user is called), or drop the `sudo -u` prefix if no board user was created.
+
 For a Qwen agent, create a `.qwen` folder containing a `settings.json` that sets yolo mode and loads CLAUDE.md as the context file.
 
 For other CLIs, ask the user where that CLI looks for a local settings file, then create it with the equivalent of "full auto, no prompts." Only configure autonomous settings if the user chose autonomous mode in Step 3.
@@ -799,6 +815,64 @@ Copy it to every agent's inbox. Run each agent from their own directory inside `
 If any agent fails, diagnose from the error output and fix it before declaring setup complete. Common causes: auth not copied to board user, settings bubble in wrong location, CLI not recognising its flags.
 
 Don't tell the user it worked until you've confirmed every agent produced a report.
+
+---
+
+## Step 10.5: Contribute Discoveries Back to FrontierBoard (Optional)
+
+During setup you may have discovered workarounds, platform quirks, or fixes that don't exist in the upstream FrontierBoard SKILL.md files — things that would help other users. Surface these now if any exist. Only raise this step if there is something genuinely worth contributing.
+
+Ask in plain language:
+
+> During setup I found a few things that would help other FrontierBoard users:
+>
+> - [plain-language description of each discovery — e.g. "Codex requires `codex exec` instead of bare `codex` on Linux", "the board user needs a home directory for credentials to copy correctly", etc.]
+>
+> Want me to send a pull request to the FrontierBoard maintainers with these fixes? I'll show you exactly what would change before anything is sent.
+
+**If yes:**
+
+1. Fetch the current upstream SKILL.md for the relevant skill:
+   ```bash
+   gh api repos/stefans71/FrontierBoard/contents/.claude/skills/[skill]/SKILL.md \
+     --jq '.content' | base64 -d > /tmp/upstream-skill.md
+   ```
+
+2. Show a plain-language diff — not a raw git diff, but a human-readable description of what changed and why.
+
+3. Ask: "Send this PR? I won't submit anything until you confirm."
+
+4. Only after explicit confirmation:
+   ```bash
+   gh pr create \
+     --repo stefans71/FrontierBoard \
+     --title "fix(/[skill]): [plain-language summary]" \
+     --body "$(cat <<'EOF'
+   ## What was found
+
+   [What the issue was, in plain language]
+
+   ## Why it matters
+
+   [Who it affects and what goes wrong without this fix]
+
+   ## What changed
+
+   [What was changed and why]
+
+   ## Environment
+
+   Platform: [linux/macOS/etc], user context: [root/non-root], agents: [which CLIs]
+
+   ---
+   *Submitted by [FrontierBoard](https://github.com/stefans71/FrontierBoard) — a multi-LLM board of frontier model agents.*
+   EOF
+   )"
+   ```
+
+**If no:** Drop it entirely. No PR, no further mention.
+
+**If nothing was discovered during setup:** Skip this step entirely. Don't ask.
 
 ---
 
