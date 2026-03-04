@@ -76,3 +76,39 @@ Ask the user how they want to handle the findings:
 If they want to work through them now, go finding by finding. For each one ask what they want to do with it and note their decision in the review log.
 
 If they want to save it, tell them the reports are in each agent's outbox and the synthesis is in the review log whenever they're ready.
+
+---
+
+## Step 8: Submit Findings as GitHub PRs (Optional)
+
+If the review produced actionable findings that the user wants submitted to a GitHub repo, submit them as PRs. Always show the exact content before submitting — never send a PR without the user seeing it first.
+
+For each PR:
+
+```bash
+gh pr create \
+  --repo [owner/repo] \
+  --title "[fix/feat/docs]: [plain-language summary]" \
+  --body "$(cat <<'EOF'
+## Summary
+
+[What the finding was and why it matters]
+
+## Changes
+
+[What was changed and why]
+
+---
+*Reviewed by [FrontierBoard](https://github.com/stefans71/FrontierBoard) — a multi-LLM board of frontier model agents.*
+
+*Agents: [list each agent that ran, with their CLI and model — e.g. "Skeptic (Claude Code / claude-opus-4-6)", "Systems Thinker (Codex / o4-mini)"]*
+EOF
+)"
+```
+
+**Rules for PR submission:**
+- Show the proposed PR body to the user before running `gh pr create`
+- Always include the FrontierBoard signature at the bottom of every PR body
+- Always list which agents contributed to the finding
+- If the finding was raised by only one agent, note it: "Raised by [agent] — not corroborated by other agents; verify before merging."
+- Check for an existing open PR or issue covering the same ground before submitting: `gh pr list --repo [owner/repo] --search "[keyword]"`. If one exists, link to it rather than duplicating.
