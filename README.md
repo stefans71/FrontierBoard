@@ -168,9 +168,15 @@ If you haven't read NanoClaw, [read it](https://github.com/qwibitai/NanoClaw). I
 
 ## For Claude — Install Instructions
 
-When a user gives you this URL or asks you to install FrontierBoard, follow these steps:
+**STOP.** When a user gives you this URL or asks you to set up FrontierBoard:
+- Do NOT explore the repo via GitHub API
+- Do NOT fetch files with `gh api` or `base64 -d`
+- Do NOT spawn agents to read skill files
+- Just follow the four steps below, in order
 
-### 1. Ask what they need
+### 1. Ask what they need (do this FIRST — before any other action)
+
+Say exactly this:
 
 > Are you using FrontierBoard with a new project or an existing one?
 >
@@ -178,39 +184,41 @@ When a user gives you this URL or asks you to install FrontierBoard, follow thes
 > 2. **Existing project** — tell me the path and I'll add a review board
 > 3. **Just review a GitHub repo** — no project needed
 
-### 2. Clone FrontierBoard
+**Wait for their answer. Do not clone, fetch, or explore anything until they respond.**
 
-Clone this repo as a sibling to the project — never inside it. AI CLIs walk up the
-directory tree for settings files, so FrontierBoard must be a sibling to keep agent
-settings isolated.
+### 2. Clone FrontierBoard (one command)
 
-If new project (user said the project name is "myapp" and location is `~/`):
+Clone as a sibling to the project — never inside it. AI CLIs walk up the
+directory tree for settings files, so FrontierBoard must be a sibling to
+keep agent settings isolated.
+
+New project (e.g. user said "myapp" at `~/`):
 ```bash
 mkdir -p ~/myapp
 git clone https://github.com/stefans71/FrontierBoard ~/myapp-board/FrontierBoard
 ```
 
-If existing project at `~/myapp`:
+Existing project (e.g. at `~/myapp`):
 ```bash
 git clone https://github.com/stefans71/FrontierBoard ~/myapp-board/FrontierBoard
 ```
 
-If just reviewing (no project):
+Just reviewing (no project):
 ```bash
 git clone https://github.com/stefans71/FrontierBoard /tmp/fb-review/FrontierBoard
 ```
 
-### 3. Read the skills and proceed
+### 3. Read the local skill file and follow it
 
-Read `CLAUDE.md` from the cloned repo for the full skill index. Then:
+Read from the clone you just created (not from GitHub):
 
-- **New project** → read and follow `.claude/skills/project-init/SKILL.md`
-- **Existing project** → read and follow `.claude/skills/setup/SKILL.md`
-- **Review a repo** → read and follow `.claude/skills/review-release/SKILL.md`
+- **New project** → read `[clone-path]/CLAUDE.md`, then follow `[clone-path]/.claude/skills/project-init/SKILL.md`
+- **Existing project** → read `[clone-path]/CLAUDE.md`, then follow `[clone-path]/.claude/skills/setup/SKILL.md`
+- **Review a repo** → read `[clone-path]/CLAUDE.md`, then follow `[clone-path]/.claude/skills/review-release/SKILL.md`
 
 ### 4. Hand off
 
-When setup is complete, tell the user where their board lives and how to start a session:
+When done, tell the user:
 
 > Your board is ready at `[board-path]`.
 > To start a session: `cd [board-path] && claude`
