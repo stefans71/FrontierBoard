@@ -13,27 +13,43 @@ When something is missing or broken, fix it. Don't tell the user to go fix it th
 
 ---
 
+## Two Paths — Board vs Target
+
+This skill uses two directory paths. Keep them straight:
+
+- **`$BOARD`** — the FrontierBoard clone directory. This is where you are running from. All board files go here: `.board/`, agents, contexts, briefs, reports, `BOARD.md`. This is the only directory the board writes to.
+- **`$PROJ`** — the user's project that the board will review. Read-only. You scan it to understand the codebase, but you never create files in it (except integration skills — see below).
+
+If running from the FrontierBoard directory directly (user cloned and cd'd in), `$BOARD` is the current working directory.
+
+If invoked via the README bootstrap flow, `$BOARD` is the clone path (e.g. `~/myapp-board/FrontierBoard/`). The user's project is `$PROJ` (e.g. `~/myapp/`).
+
+**Everywhere this skill says `$BOARD/.board/`**, it means `$BOARD/.board/`. The board NEVER creates `.board/` inside the user's project.
+
+---
+
 ## Host Project Safety Rules — Read Before Starting
 
 These rules apply for the entire setup. Never break them.
 
 **You may freely:**
-- Create and write anything inside `$PROJ/.board/**` — FrontierBoard's exclusive territory
+- Create and write anything inside `$BOARD/.board/**` — FrontierBoard's exclusive territory
 - Append to `$PROJ/.gitignore` — never modify or delete existing lines
-- Create **new** files and directories inside `$PROJ/.claude/skills/` — adding new skills doesn't touch existing config
+- Create **new** files and directories inside `$PROJ/.claude/skills/` — adding integration skills
 - Create **new** files and directories inside `$PROJ/container/skills/` — for NanoClaw integration
 
 **You may read but never modify:**
 - `$PROJ/.claude/settings.json`, `$PROJ/CLAUDE.md`, `$PROJ/src/`, and all other existing project files — read to understand, never change
 
 **Never:**
-- Delete, overwrite, or rename any file that already exists outside `$PROJ/.board/`
+- Create `.board/` inside the user's project — it always goes in `$BOARD`
+- Delete, overwrite, or rename any file that already exists outside `$BOARD/.board/`
 - Modify existing `.gitignore` entries — only append new ones
 - Require the user to create directories or write files — you do all of that
 
-**Key distinction:** creating a *new* file in a directory that already exists (e.g. `.claude/skills/board-review/SKILL.md` when `.claude/` already exists) is always safe. Only writing to *existing* files outside `.board/` is off-limits.
+**Key distinction:** creating a *new* file in a directory that already exists (e.g. `$PROJ/.claude/skills/board-review/SKILL.md` when `.claude/` already exists) is always safe. Only writing to *existing* files outside `$BOARD/.board/` is off-limits.
 
-If the project has no `.claude/` directory: FrontierBoard still works entirely inside `.board/`. You can create `.claude/skills/board-review/` as new directories without issue. The project doesn't need an existing Claude setup for FrontierBoard to install.
+If the project has no `.claude/` directory: FrontierBoard still works entirely inside `$BOARD/.board/`. You can create `$PROJ/.claude/skills/board-review/` as new directories without issue. The project doesn't need an existing Claude setup for FrontierBoard to install.
 
 ---
 
@@ -47,14 +63,20 @@ Introduce what's about to happen:
 >
 > If you haven't created the directory yet, tell me where you want it and I'll create it.
 
-Once you have the path, expand it and check what's there:
+Once you have the path, expand it and set both path variables:
 
 ```bash
 PROJ=$(eval echo [path])
 ls "$PROJ" 2>/dev/null && echo "exists" || echo "missing"
 ```
 
-If missing, create it:
+**Set `$BOARD`** — the FrontierBoard clone directory. This is where you're running from:
+- If you're running from the FrontierBoard directory: `$BOARD` is the current working directory
+- If invoked via the README bootstrap: `$BOARD` is the clone path that was used in step 2
+
+All board files (`.board/`, agents, reports) go in `$BOARD`, never in `$PROJ`.
+
+If the project directory is missing, create it:
 ```bash
 mkdir -p "$PROJ"
 ```
@@ -77,7 +99,7 @@ Set `INTEGRATION_MODE` to one of:
 
 Note the integration mode. You will use it in Step 8 when wiring up the review bridge.
 
-Note the absolute project path. Every subsequent file operation targets this path. The board lives at `$PROJ/.board/`.
+Note both absolute paths: `$PROJ` (target project, read-only) and `$BOARD` (FrontierBoard clone, where `.board/` lives).
 
 ---
 
@@ -322,13 +344,13 @@ If a board user was created in Step 3, copy the relevant credential files from t
 
 ## Step 7: Build the Agents
 
-All agent directories live inside `$PROJ/.board/board/`. The board itself lives at `$PROJ/.board/`.
+All agent directories live inside `$BOARD/.board/board/`. The board itself lives at `$BOARD/.board/`.
 
 For each agent the user described in Step 5, create their directory and everything in it.
 
 **Directory structure for each agent:**
 
-Create the agent directory inside `$PROJ/.board/board/`. The name should reflect the agent's role — lowercase, hyphens, no spaces. For example: `$PROJ/.board/board/skeptic/`, `$PROJ/.board/board/systems-thinker/`.
+Create the agent directory inside `$BOARD/.board/board/`. The name should reflect the agent's role — lowercase, hyphens, no spaces. For example: `$BOARD/.board/board/skeptic/`, `$BOARD/.board/board/systems-thinker/`.
 
 Inside each agent directory, create:
 - An inbox folder
@@ -383,7 +405,7 @@ The thinking style should read as domain-agnostic. A good CLAUDE.md for "The Ske
 
 Context files tell the agent what lens to apply for a specific type of review. The orchestrator loads the right context into the agent's inbox when a review is triggered.
 
-A context file goes in `$PROJ/.board/board/{agent}/contexts/{domain}.md`. It covers: what questions to ask in this domain, what a strong finding looks like here, what failure modes are common in this type of review.
+A context file goes in `$BOARD/.board/board/{agent}/contexts/{domain}.md`. It covers: what questions to ask in this domain, what a strong finding looks like here, what failure modes are common in this type of review.
 
 Write context files now based on the domain the user chose in Step 4:
 - If they chose a specific domain (software, business, HR, finance): write one context per agent for that domain.
@@ -410,7 +432,7 @@ The user just describes what they want reviewed. The orchestrator handles contex
 
 ## Step 8: Write Board Identity Files and Wire Integration
 
-**`$PROJ/.board/CLAUDE.md`**
+**`$BOARD/.board/CLAUDE.md`**
 
 This is the board orchestrator's identity. Write it now using the template below. Fill in everything in brackets from what you've learned.
 
@@ -456,7 +478,7 @@ To set a review brief: /brief
 To run the board: /run
 ```
 
-**`$PROJ/.board/board/BOARD.md`**
+**`$BOARD/.board/board/BOARD.md`**
 
 This is the operational source of truth. Write it with:
 - The project name and absolute path
@@ -474,9 +496,9 @@ This is the operational source of truth. Write it with:
 
 The user never manually triggers board reviews — NanoClaw Claude handles it. Wire this up now:
 
-1. Create `$PROJ/.board/bridge/` directory.
+1. Create `$BOARD/.board/bridge/` directory.
 
-2. Write `$PROJ/.board/bridge/run-review.sh`:
+2. Write `$BOARD/.board/bridge/run-review.sh`:
 
 ```bash
 #!/usr/bin/env bash
@@ -495,7 +517,7 @@ cd "$BOARD_DIR"
 exec claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
 ```
 
-Make it executable: `chmod +x $PROJ/.board/bridge/run-review.sh`
+Make it executable: `chmod +x $BOARD/.board/bridge/run-review.sh`
 
 3. Write a NanoClaw skill that tells NanoClaw Claude how to invoke the bridge.
 
@@ -795,10 +817,10 @@ add_if_missing ".board/bridge/"
 Do not add `.env` or `.env.*` — those belong to the project, not to FrontierBoard.
 
 What should be committed (defines board structure, contains no credentials):
-- `$PROJ/.board/CLAUDE.md`
-- `$PROJ/.board/board/{agent}/CLAUDE.md` for each agent
-- `$PROJ/.board/board/{agent}/.claude/settings.json` (or equivalent) for each agent
-- `$PROJ/.board/.claude/skills/` — the board's own skills
+- `$BOARD/.board/CLAUDE.md`
+- `$BOARD/.board/board/{agent}/CLAUDE.md` for each agent
+- `$BOARD/.board/board/{agent}/.claude/settings.json` (or equivalent) for each agent
+- `$BOARD/.board/.claude/skills/` — the board's own skills
 - `$PROJ/.claude/skills/board-review/` — the integration skill that tells the host project's Claude about the board
 - `$PROJ/container/skills/board-review/` — if NanoClaw integration was added
 
@@ -812,7 +834,7 @@ Run a quick test to confirm the board actually works.
 
 Write a minimal test brief — one sentence asking each agent to confirm their identity, confirm they can write to their outbox, and report back with a score of 10/10.
 
-Copy it to every agent's inbox. Run each agent from their own directory inside `$PROJ/.board/`. Check that a report appears in each agent's outbox.
+Copy it to every agent's inbox. Run each agent from their own directory inside `$BOARD/.board/`. Check that a report appears in each agent's outbox.
 
 If any agent fails, diagnose from the error output and fix it before declaring setup complete. Common causes: auth not copied to board user, settings bubble in wrong location, CLI not recognising its flags.
 
@@ -880,7 +902,7 @@ Ask in plain language:
 
 ## Step 11: Done
 
-Tell the user their board is ready. Name each agent, their CLI, and their role in plain language. Show them the project path and board path (`$PROJ/.board/`).
+Tell the user their board is ready. Name each agent, their CLI, and their role in plain language. Show them the project path and board path (`$BOARD/.board/`).
 
 Then give concrete next steps that match the integration mode detected in Step 1. Do not give generic instructions — be specific about how this user's board gets triggered.
 
