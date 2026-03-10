@@ -216,6 +216,12 @@ Read from the clone you just created (not from GitHub):
 - **Existing project** → read `[clone-path]/CLAUDE.md`, then follow `[clone-path]/.claude/skills/setup/SKILL.md`
 - **Review a repo** → read `[clone-path]/CLAUDE.md`, then follow `[clone-path]/.claude/skills/review-release/SKILL.md`
 
+**IMPORTANT — working directory:** The skill files assume the FrontierBoard clone directory
+is the working directory. When the skill references `$PROJ` or creates `.board/`, that means
+the clone path (e.g. `~/myapp-board/FrontierBoard/`), NOT the user's project directory.
+All board files — agents, contexts, briefs, reports — go inside the clone directory.
+The user's project directory is never written to by the board.
+
 ### 4. Hand off
 
 When done, tell the user:
