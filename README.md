@@ -16,7 +16,7 @@
 
 ---
 
-[Get Started](#getting-started) · [Two Ways to Use It](#two-ways-to-use-frontierboard) · [How It Works](#how-it-works) · [The Skills](#the-skills) · [Philosophy](#philosophy)
+[Get Started](#getting-started) · [Three Ways to Use It](#three-ways-to-use-frontierboard) · [How It Works](#how-it-works) · [The Skills](#the-skills) · [Philosophy](#philosophy)
 
 </div>
 
@@ -32,33 +32,35 @@ Point it at code, architecture, a business decision, a hiring brief, a financial
 
 ## Getting Started
 
-You need Claude Code. Everything else gets sorted during setup.
-
-**Clone FrontierBoard as a sibling directory** — next to your project, not inside it. AI CLIs walk up the directory tree looking for settings files, so if FrontierBoard lived inside your project, your project's settings would override the board agents' settings and break isolation.
+You need [Claude Code](https://claude.ai/code). That's it.
 
 ```bash
-# Step 1: Clone FrontierBoard next to your project
-cd /path/to          # the parent folder that contains your project
 git clone https://github.com/stefans71/FrontierBoard
-
-# Step 2: Run Claude from inside FrontierBoard
 cd FrontierBoard
 claude
 ```
 
-Then type `/project-init` or `/setup` — see [Two Ways to Use It](#two-ways-to-use-frontierboard) to pick the right one. Claude will ask for the path to your project and handle everything from there.
+Then tell Claude what you want to do:
 
-The board installs as a sibling directory (e.g. `your-project-board/` next to `your-project/`). Your project directory is never modified except to add integration skill files if you opt in.
+| You say | What happens |
+|---------|-------------|
+| `/project-init` | **New or existing project.** Claude asks the project name and path, creates the folder if needed, writes the filing cabinet, and optionally adds a review board. |
+| `/setup` | **Board only.** Claude asks which project to attach to, reads it, interviews you about agents, and builds the board. |
+| `/review-release` | **Review a GitHub repo.** No project needed. Claude asks for the repo, fetches it via GitHub API, and runs the board against it. |
+
+Claude handles all directory creation. You don't need to think about where things go — Claude will create your project folder and a board folder (named `your-project-board/`) as siblings, keeping settings isolated. At the end of setup, Claude tells you exactly where to go next:
+
+> *Your board is ready at `~/myproject-board/`. To start a session: `cd ~/myproject-board && claude`*
 
 ---
 
-## Two Ways to Use FrontierBoard
+## Three Ways to Use FrontierBoard
 
-### 🗂️ `/project-init` — Filing cabinet + board *(recommended)*
+### `/project-init` — Filing cabinet + board *(recommended for new projects)*
 
 > *An improvising Claude, left alone in a new codebase, produces the kind of file structure that looks like a 5-year-old was left unsupervised in your office for an hour.*
 
-Before you write a line of code, your Claude interviews you and builds the four files that keep it sane across every session:
+Claude interviews you and builds the four files that keep it sane across every session:
 
 | File | What it does |
 |------|-------------|
@@ -67,29 +69,23 @@ Before you write a line of code, your Claude interviews you and builds the four 
 | `SPEC.md` | Architecture from the interview — not a template. |
 | `tasks.md` | Survives compaction. Phase boundaries. Keeps your project from losing its place. |
 
-Your Claude detects whether this is a new project or an existing one and takes the right path. For existing projects it scans first, confirms what it found, and only fills in what's missing — it won't overwrite anything already there.
-
-Optionally wires in the board at the end. The board installs as a sibling directory (`your-project-board/`) — completely separate from your project, no collisions.
-
-```bash
-# From FrontierBoard (cloned as a sibling):
-cd FrontierBoard && claude
-# type /project-init
-# Claude will ask for the path to your project
-```
+Works for new and existing projects. For existing projects it scans first, confirms what it found, and only fills in what's missing. Optionally wires in the review board at the end.
 
 ---
 
-### 🏛️ `/setup` — Just the board
+### `/setup` — Just the board
 
-Already have your project set up? Your Claude interviews you, reads your project, builds the agents, and installs the board as a sibling directory (`your-project-board/`).
+Already have your project set up? Claude interviews you about your review needs, reads the project, builds the agents, and installs the board. Everything is conversational — Claude asks the questions, you answer, Claude does the work.
 
-```bash
-# From FrontierBoard (cloned as a sibling):
-cd FrontierBoard && claude
-# type /setup
-# Claude will ask for the path to your project
-```
+---
+
+### `/review-release` — Review any GitHub repo
+
+Don't have a project at all? Just want to review someone else's code before installing it, or find bugs to contribute? This works standalone — no project folder needed. Three review modes:
+
+- **Mode A** — Static release review: find bugs and improvements in a diff
+- **Mode B** — Safety review: is this repo safe to install?
+- **Mode C** — Full build review: clone it, install it, capture what breaks
 
 ---
 
