@@ -350,7 +350,11 @@ For static findings, show the code path that triggers the issue.]
 > *A governance board of frontier model agents — independent, parallel, ruthlessly honest.*
 >
 > **Board composition:**
-> [list each agent: name, CLI, model]
+> [list each agent: name, thinking style, CLI, model — e.g. "Skeptic (Claude Code, claude-opus-4-6)"]
+>
+> **Review date:** [timestamp in Pacific time — use `TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M %Z'`]
+> **Review mode:** [A (static) / B (safety) / C (full build)]
+> **Target commit:** [short SHA from the reviewed code]
 >
 > Each agent reviewed independently with no coordination. Findings represent board consensus.
 EOF
