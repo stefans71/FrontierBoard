@@ -322,6 +322,21 @@ gh pr create \
 
 [What the issue is and why it matters]
 
+## How to reproduce
+
+[Exact steps to trigger the issue — commands, environment, config]
+
+<details>
+<summary>Install/build log (click to expand)</summary>
+
+```
+[Relevant portion of the patch log — the failing command, its output, and any error messages.
+For Mode C findings, paste the specific patch entry from the build attempt log.
+For static findings, show the code path that triggers the issue.]
+```
+
+</details>
+
 ## Changes
 
 [What was changed and why]
