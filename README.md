@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-black?style=flat-square)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-required-orange?style=flat-square&logo=anthropic)](https://claude.ai/code)
-[![Skills](https://img.shields.io/badge/Skills-5-blue?style=flat-square)](#the-skills)
+[![Skills](https://img.shields.io/badge/Skills-6-blue?style=flat-square)](#the-skills)
 [![Models](https://img.shields.io/badge/Multi--Model-Claude_·_Codex_·_Qwen-purple?style=flat-square)](#requirements)
 [![Version](https://img.shields.io/badge/Version-2.0-brightgreen?style=flat-square)](https://github.com/stefans71/FrontierBoard/discussions)
 
@@ -34,25 +34,21 @@ Point it at code, architecture, a business decision, a hiring brief, a financial
 
 You need Claude Code. Everything else gets sorted during setup.
 
-**Clone FrontierBoard into your project folder** — not alongside it, not somewhere separate. FrontierBoard is a tool that lives inside the project you're working on.
+**Clone FrontierBoard as a sibling directory** — next to your project, not inside it. AI CLIs walk up the directory tree looking for settings files, so if FrontierBoard lived inside your project, your project's settings would override the board agents' settings and break isolation.
 
 ```bash
-# Step 1: Open a terminal in your project folder
-cd /path/to/your-project
-
-# Step 2: Clone FrontierBoard as a subfolder and gitignore it
+# Step 1: Clone FrontierBoard next to your project
+cd /path/to          # the parent folder that contains your project
 git clone https://github.com/stefans71/FrontierBoard
-echo "FrontierBoard/" >> .gitignore
 
-# Step 3: Run claude from inside FrontierBoard
-# (This is the only reason you cd here — so Claude picks up the skills)
+# Step 2: Run Claude from inside FrontierBoard
 cd FrontierBoard
 claude
 ```
 
-Then type `/project-init` or `/setup` — see [Two Ways to Use It](#two-ways-to-use-frontierboard) to pick the right one.
+Then type `/project-init` or `/setup` — see [Two Ways to Use It](#two-ways-to-use-frontierboard) to pick the right one. Claude will ask for the path to your project and handle everything from there.
 
-Everything the board installs — agent directories, the `.board/` folder, review logs — goes **one level up**, back into your project root. After setup you won't need to `cd FrontierBoard` again.
+The board installs as a sibling directory (e.g. `your-project-board/` next to `your-project/`). Your project directory is never modified except to add integration skill files if you opt in.
 
 ---
 
@@ -73,24 +69,26 @@ Before you write a line of code, your Claude interviews you and builds the four 
 
 Your Claude detects whether this is a new project or an existing one and takes the right path. For existing projects it scans first, confirms what it found, and only fills in what's missing — it won't overwrite anything already there.
 
-Optionally wires in the board at the end. Everything lands in `[your-project]/.board/` — gitignored, separate from your project, no collisions.
+Optionally wires in the board at the end. The board installs as a sibling directory (`your-project-board/`) — completely separate from your project, no collisions.
 
 ```bash
-# From inside your project folder:
+# From FrontierBoard (cloned as a sibling):
 cd FrontierBoard && claude
 # type /project-init
+# Claude will ask for the path to your project
 ```
 
 ---
 
 ### 🏛️ `/setup` — Just the board
 
-Already have your project set up? Your Claude interviews you, reads your project, builds the agents, and installs the board into `[your-project]/.board/`.
+Already have your project set up? Your Claude interviews you, reads your project, builds the agents, and installs the board as a sibling directory (`your-project-board/`).
 
 ```bash
-# From inside your project folder:
+# From FrontierBoard (cloned as a sibling):
 cd FrontierBoard && claude
 # type /setup
+# Claude will ask for the path to your project
 ```
 
 ---
@@ -122,6 +120,7 @@ Your project Claude can request a board review without you opening a second term
 | `/setup` | Builds your board from scratch — reads your project, sets up agents, handles CLI auth |
 | `/brief` | Sets context for a review — detects domain, writes or activates context, populates inboxes |
 | `/run` | Runs all agents in parallel · collects reports · synthesises findings |
+| `/review-release` | Reviews a GitHub repo or release — static analysis, safety verdict, or full build monitoring |
 | `/new-agent` | Adds a new agent to the board — same conversational flow |
 
 Plain language always works. The slash commands are shortcuts.
