@@ -297,7 +297,9 @@ Same synthesis process as `/run` Steps 4–6 — collect reports, identify conse
 
 ## Step 7A: Mode A — Package as PRs
 
-For each actionable finding that is NOT already covered by an existing open PR or issue:
+For each actionable finding, check it against the FULL PR and issue history — open, closed, and merged. If a PR was already submitted (even if closed or merged) that covers the same issue, skip it. Do not re-raise findings that have already been addressed upstream.
+
+For each finding that passes the dedup check:
 
 1. Draft the fix in plain language
 2. Show the proposed PR to the user before submitting:
@@ -329,14 +331,18 @@ gh pr create \
 [Simple steps to confirm the fix works]
 
 ---
-*Reviewed by [FrontierBoard](https://github.com/stefans71/FrontierBoard) — a multi-LLM board of frontier model agents.*
-
-*Agents: [list each agent that ran, with their CLI and model]*
+> **Reviewed by [FrontierBoard](https://github.com/stefans71/FrontierBoard)**
+> *A governance board of frontier model agents — independent, parallel, ruthlessly honest.*
+>
+> **Board composition:**
+> [list each agent: name, CLI, model]
+>
+> Each agent reviewed independently with no coordination. Findings represent board consensus.
 EOF
 )"
 ```
 
-If a finding is already covered by an existing open PR, add a comment to that PR with the board's additional context (only with user confirmation):
+If a finding is already covered by an existing open or closed PR, add a comment to that PR with the board's additional context (only with user confirmation):
 
 ```bash
 gh pr comment [number] --repo [owner/repo] --body "..."
@@ -360,8 +366,9 @@ Synthesise the security findings into a single plain-language verdict. This goes
 > **What we checked:** [brief list of file types and areas reviewed]
 >
 > ---
-> *Reviewed by [FrontierBoard](https://github.com/stefans71/FrontierBoard) — a multi-LLM board of frontier model agents.*
-> *Agents: [list agents with their CLIs]*
+> **Reviewed by [FrontierBoard](https://github.com/stefans71/FrontierBoard)**
+> *A governance board of frontier model agents — independent, parallel, ruthlessly honest.*
+> *Board: [list agents with their CLIs and models]*
 
 **Verdict definitions:**
 - **SAFE** — No concerning patterns found. Standard install risks only (all software can have bugs).
@@ -375,6 +382,8 @@ Do not submit any PR or issue to the target repo for a Mode B review. The verdic
 ## Step 7C: Mode C — Package Build Findings as PRs
 
 Findings from Mode C fall into two categories — handle each differently:
+
+Before drafting any PR, check each finding against the FULL PR and issue history (open, closed, and merged) from Step 3. If a fix was already submitted, merged, or is under discussion — skip it. Do not duplicate existing work.
 
 **Genuine upstream bugs** (the project itself needs fixing — a bad default, missing error handling, broken install step):
 1. Draft the fix
