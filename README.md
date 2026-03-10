@@ -34,29 +34,26 @@ Point it at code, architecture, a business decision, a hiring brief, a financial
 
 You need [Claude Code](https://claude.ai/code). That's it.
 
-```bash
-git clone https://github.com/stefans71/FrontierBoard
-cd FrontierBoard
-claude
-```
+Open Claude Code and give it this URL:
 
-Then tell Claude what you want to do:
+    https://github.com/stefans71/FrontierBoard/blob/main/README.md
 
-| You say | What happens |
-|---------|-------------|
-| `/project-init` | **New or existing project.** Claude asks the project name and path, creates the folder if needed, writes the filing cabinet, and optionally adds a review board. |
-| `/setup` | **Board only.** Claude asks which project to attach to, reads it, interviews you about agents, and builds the board. |
-| `/review-release` | **Review a GitHub repo.** No project needed. Claude asks for the repo, fetches it via GitHub API, and runs the board against it. |
+Claude reads this page and walks you through everything:
 
-Claude handles all directory creation. You don't need to think about where things go — Claude will create your project folder and a board folder (named `your-project-board/`) as siblings, keeping settings isolated. At the end of setup, Claude tells you exactly where to go next:
+- **New project?** Claude asks for a name, creates the folder, sets up your
+  filing cabinet, and optionally adds a review board.
+- **Existing project?** Claude asks for the path, reads your project, and
+  sets up the board.
+- **Just want to review a GitHub repo?** Claude clones FrontierBoard, then
+  runs `/review-release` — no project folder needed.
 
-> *Your board is ready at `~/myproject-board/`. To start a session: `cd ~/myproject-board && claude`*
+You never clone anything yourself. Claude handles it.
 
 ---
 
 ## Three Ways to Use FrontierBoard
 
-### `/project-init` — Filing cabinet + board *(recommended for new projects)*
+### New project — filing cabinet + board
 
 > *An improvising Claude, left alone in a new codebase, produces the kind of file structure that looks like a 5-year-old was left unsupervised in your office for an hour.*
 
@@ -73,15 +70,15 @@ Works for new and existing projects. For existing projects it scans first, confi
 
 ---
 
-### `/setup` — Just the board
+### Existing project — just the board
 
 Already have your project set up? Claude interviews you about your review needs, reads the project, builds the agents, and installs the board. Everything is conversational — Claude asks the questions, you answer, Claude does the work.
 
 ---
 
-### `/review-release` — Review any GitHub repo
+### Review a GitHub repo — no project needed
 
-Don't have a project at all? Just want to review someone else's code before installing it, or find bugs to contribute? This works standalone — no project folder needed. Three review modes:
+Just want to review someone else's code before installing it, or find bugs to contribute? No project folder needed. Three review modes:
 
 - **Mode A** — Static release review: find bugs and improvements in a diff
 - **Mode B** — Safety review: is this repo safe to install?
@@ -166,6 +163,57 @@ FrontierBoard applies that to a governance problem: independent agents, independ
 FrontierBoard would not exist without **Gavriel** ([qwibitai](https://github.com/qwibitai)) and the NanoClaw contributors — Vaibhav Aggarwal, Skip Potter, Rafael Garcia, Lingfeng Guan, and others.
 
 If you haven't read NanoClaw, [read it](https://github.com/qwibitai/NanoClaw). It will change how you think about what a software project can be.
+
+---
+
+## For Claude — Install Instructions
+
+When a user gives you this URL or asks you to install FrontierBoard, follow these steps:
+
+### 1. Ask what they need
+
+> Are you using FrontierBoard with a new project or an existing one?
+>
+> 1. **New project** — I'll create the project folder and set everything up
+> 2. **Existing project** — tell me the path and I'll add a review board
+> 3. **Just review a GitHub repo** — no project needed
+
+### 2. Clone FrontierBoard
+
+Clone this repo as a sibling to the project — never inside it. AI CLIs walk up the
+directory tree for settings files, so FrontierBoard must be a sibling to keep agent
+settings isolated.
+
+If new project (user said the project name is "myapp" and location is `~/`):
+```bash
+mkdir -p ~/myapp
+git clone https://github.com/stefans71/FrontierBoard ~/myapp-board/FrontierBoard
+```
+
+If existing project at `~/myapp`:
+```bash
+git clone https://github.com/stefans71/FrontierBoard ~/myapp-board/FrontierBoard
+```
+
+If just reviewing (no project):
+```bash
+git clone https://github.com/stefans71/FrontierBoard /tmp/fb-review/FrontierBoard
+```
+
+### 3. Read the skills and proceed
+
+Read `CLAUDE.md` from the cloned repo for the full skill index. Then:
+
+- **New project** → read and follow `.claude/skills/project-init/SKILL.md`
+- **Existing project** → read and follow `.claude/skills/setup/SKILL.md`
+- **Review a repo** → read and follow `.claude/skills/review-release/SKILL.md`
+
+### 4. Hand off
+
+When setup is complete, tell the user where their board lives and how to start a session:
+
+> Your board is ready at `[board-path]`.
+> To start a session: `cd [board-path] && claude`
 
 ---
 
