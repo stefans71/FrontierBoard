@@ -34,11 +34,11 @@ Point it at code, architecture, a business decision, a hiring brief, a financial
 
 You need [Claude Code](https://claude.ai/code). That's it.
 
-Open Claude Code and give it this URL:
+Open Claude Code and say:
 
-    https://github.com/stefans71/FrontierBoard/blob/main/README.md
+    Set up FrontierBoard: https://github.com/stefans71/FrontierBoard/blob/main/README.md
 
-Claude reads this page and walks you through everything:
+Claude reads the install instructions on that page and walks you through everything:
 
 - **New project?** Claude asks for a name, creates the folder, sets up your
   filing cabinet, and optionally adds a review board.
