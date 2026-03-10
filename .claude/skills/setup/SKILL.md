@@ -173,25 +173,25 @@ Then for each agent, output a heading (`### Agent [N]`) and ask about their thin
 
 **If they chose a specific domain (e.g. software):**
 
-> Tell me about agent [number]. What's their angle when reviewing [domain]? You can describe them however feels natural. For example:
-> - "Always looks for what could break or be exploited" ← good for security-focused software review
-> - "Asks whether this is the simplest solution that could work" ← good for architecture review
-> - "Traces what happens downstream when something changes" ← good for systems/integration review
-> - "Pushes back on every assumption — why are we doing it this way at all?"
+> Tell me about agent [number]. What's their angle when reviewing [domain]? Pick a number or describe your own:
 >
-> Or describe something completely different — I'll write the role from your description.
+> 1. **Security-focused** — always looks for what could break or be exploited
+> 2. **Architecture** — asks whether this is the simplest solution that could work
+> 3. **Systems/integration** — traces what happens downstream when something changes
+> 4. **Contrarian** — pushes back on every assumption — why are we doing it this way at all?
+> 5. **Something else** — describe it and I'll write the role
 
 **If they chose "mix of everything":**
 
-> Tell me about agent [number]. What's their thinking style — how do they approach any question?
+> Tell me about agent [number]. What's their thinking style? Pick a number or describe your own:
 >
-> For mixed reviews, thinking styles work better than domain expertise, because the same style can be applied to code, strategy, or hiring decisions. Some examples:
-> - **The Skeptic** — challenges every assumption, asks "what could go wrong?" and "what are we not seeing?" Works for software (finds edge cases and failure modes), business (finds shaky assumptions), hiring (spots red flags).
-> - **The Systems Thinker** — traces how things connect and what the second-order effects are. Works for architecture (traces dependencies), strategy (traces market dynamics), org decisions (traces team dynamics).
-> - **The Pragmatist** — focuses on what's actually feasible given real constraints. Works for code (is this maintainable?), business (can we actually execute this?), finance (are these numbers realistic?).
-> - **The Contrarian** — argues the opposite position to stress-test the logic. Works for any domain.
+> 1. **The Skeptic** — challenges every assumption, asks "what could go wrong?" and "what are we not seeing?"
+> 2. **The Systems Thinker** — traces how things connect and what the second-order effects are
+> 3. **The Pragmatist** — focuses on what's actually feasible given real constraints
+> 4. **The Contrarian** — argues the opposite position to stress-test the logic
+> 5. **Something else** — describe it and I'll write the role
 >
-> These are just starting points — describe what you want and I'll write it.
+> These work across any domain — code, strategy, hiring, finance.
 
 After each agent's thinking style is confirmed, ask about CLI:
 
