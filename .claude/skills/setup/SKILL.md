@@ -9,6 +9,8 @@ Walk the user through setting up their board from scratch. This is a conversatio
 
 When something is missing or broken, fix it. Don't tell the user to go fix it themselves unless it truly requires their hands.
 
+**Output formatting:** When you reach a new step, output its name as a markdown heading (e.g. `## Step 5: Compose the Board`). When asking about individual agents, use a heading for each (e.g. `### Agent 1`). This gives the user visual progress through the setup.
+
 ---
 
 ## Host Project Safety Rules — Read Before Starting
@@ -167,7 +169,7 @@ Ask:
 
 > How many agents do you want on your board? Two is the minimum for independent perspectives. Three gives you a tiebreaker. More than four gets noisy.
 
-Then for each agent, ask about their thinking style. Frame the question based on what domain(s) they chose in Step 4:
+Then for each agent, output a heading (`### Agent [N]`) and ask about their thinking style. Frame the question based on what domain(s) they chose in Step 4:
 
 **If they chose a specific domain (e.g. software):**
 
