@@ -35,8 +35,7 @@ These rules apply for the entire setup. Never break them.
 **You may freely:**
 - Create and write anything inside `$BOARD/.board/**` — FrontierBoard's exclusive territory
 - Append to `$PROJ/.gitignore` — never modify or delete existing lines
-- Create **new** files and directories inside `$PROJ/.claude/skills/` — adding integration skills
-- Create **new** files and directories inside `$PROJ/container/skills/` — for NanoClaw integration
+- Create **new** files and directories inside `$PROJ/.claude/skills/` — adding integration skills (including NanoClaw board-review skill)
 
 **You may read but never modify:**
 - `$PROJ/.claude/settings.json`, `$PROJ/CLAUDE.md`, `$PROJ/src/`, and all other existing project files — read to understand, never change
@@ -514,8 +513,21 @@ fi
 mkdir -p "$BOARD_DIR/board/inbox"
 echo "$BRIEF" > "$BOARD_DIR/board/inbox/request.md"
 cd "$BOARD_DIR"
-exec claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
+
+# Unset CLAUDECODE so nested Claude Code instances aren't blocked
+unset CLAUDECODE
+
+# If running as root and a board user exists, switch to it
+BOARD_USER="${FRONTIERBOARD_USER:-llmuser}"
+if [ "$(id -u)" = "0" ] && id "$BOARD_USER" &>/dev/null; then
+  exec sudo -u "$BOARD_USER" env HOME="$(eval echo ~$BOARD_USER)" \
+    claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
+else
+  exec claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
+fi
 ```
+
+The `FRONTIERBOARD_USER` env var defaults to `llmuser` but can be overridden if the user chose a different name during setup.
 
 Make it executable: `chmod +x $BOARD/.board/bridge/run-review.sh`
 
@@ -524,14 +536,14 @@ Make it executable: `chmod +x $BOARD/.board/bridge/run-review.sh`
 First check whether `board-review` is already taken in the NanoClaw skills directory:
 
 ```bash
-ls "$PROJ/container/skills/board-review/SKILL.md" 2>/dev/null && echo "exists" || echo "free"
+ls "$PROJ/.claude/skills/board-review/SKILL.md" 2>/dev/null && echo "exists" || echo "free"
 ```
 
 - If free: use `board-review` as the skill name.
 - If exists and contains FrontierBoard content: offer to update it (same rule as the `claude-project` path above).
 - If exists and is unrelated: use `frontierboard-review` as the skill name.
 
-Create `$PROJ/container/skills/{skill-name}/SKILL.md`:
+Create `$PROJ/.claude/skills/{skill-name}/SKILL.md`:
 
 ```markdown
 ---
@@ -629,7 +641,7 @@ FrontierBoard is integrated with NanoClaw. The user never invokes the board
 directly — NanoClaw Claude handles it via the board-review skill.
 
 Bridge script: [PROJ_PATH]/.board/bridge/run-review.sh
-NanoClaw skill: [PROJ_PATH]/container/skills/board-review/SKILL.md
+NanoClaw skill: [PROJ_PATH]/.claude/skills/board-review/SKILL.md
 
 To trigger manually (for testing):
   [PROJ_PATH]/.board/bridge/run-review.sh "Review [topic]"
@@ -822,7 +834,6 @@ What should be committed (defines board structure, contains no credentials):
 - `$BOARD/.board/board/{agent}/.claude/settings.json` (or equivalent) for each agent
 - `$BOARD/.board/.claude/skills/` — the board's own skills
 - `$PROJ/.claude/skills/board-review/` — the integration skill that tells the host project's Claude about the board
-- `$PROJ/container/skills/board-review/` — if NanoClaw integration was added
 
 These files contain no credentials and are safe to commit. They're what defines the integration — if someone clones the repo, they get a working board setup out of the box (minus credentials, which they provide during their own setup run).
 
