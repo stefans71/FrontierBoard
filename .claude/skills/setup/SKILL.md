@@ -394,23 +394,26 @@ Write this from the user's description of the agent's thinking style, combined w
 It should cover:
 - **Who they are**: their thinking style and what they always bring to any question — frame this as a cognitive approach, not a domain role. "Always looks for the failure mode no one's thought of" is better than "software security expert."
 - **How they think**: their reasoning style, what they instinctively question, what they tend to challenge, what they treat as a red flag
-- **The project context**: what they know they're reviewing (use what you read in Step 2) — this gives them grounding even before a brief arrives
+- **What they're reviewing**: one sentence naming the project — just enough so they know the subject. Example: "You are a board reviewer for NanoClaw, a multi-channel AI assistant." No architectural details, no tech stack, no domain-specific threat models — that all belongs in context files.
 - **Their output format**: structured findings with severity, reference (file path, section, or topic), description, and recommended action
 - **Their rules**: write report first, blind review (no reading other reports before writing their own), no coordination with other agents, always load the context file from their inbox before starting
 
-The thinking style should read as domain-agnostic. A good CLAUDE.md for "The Skeptic" should make them equally useful reviewing a PR, a pricing decision, or a hiring scorecard — without needing to be rewritten for each.
+The CLAUDE.md must be domain-agnostic. A good CLAUDE.md for "The Skeptic" should make them equally useful reviewing a PR, a pricing decision, or a hiring scorecard — without needing to be rewritten for each. Domain-specific knowledge (architecture, threat models, tech stack, key files, complexity hotspots) goes in context files, NOT in CLAUDE.md. The agent's identity is how they think. The context file tells them what they're looking at today.
 
 **Contexts:**
 
-Context files tell the agent what lens to apply for a specific type of review. The orchestrator loads the right context into the agent's inbox when a review is triggered.
+Context files tell the agent what lens to apply for a specific type of review. This is where all domain-specific and project-specific knowledge lives — architecture, tech stack, key files, threat models, complexity hotspots, known risks. None of this goes in CLAUDE.md.
 
-A context file goes in `$BOARD/.board/board/{agent}/contexts/{domain}.md`. It covers: what questions to ask in this domain, what a strong finding looks like here, what failure modes are common in this type of review.
+A context file goes in `$BOARD/.board/board/{agent}/contexts/{domain}.md`. It covers:
+- **Project architecture**: tech stack, key files, how components connect, data flow
+- **Domain lens**: what questions to ask in this domain, what failure modes are common, what a strong finding looks like
+- **Agent-specific focus**: tailored to this agent's thinking style. The Skeptic's software context should emphasise attack surfaces and trust boundaries. The Systems Thinker's should emphasise data flow and component contracts. The Simplicity Advocate's should emphasise complexity hotspots and abstraction costs.
 
 Write context files now based on the domain the user chose in Step 4:
 - If they chose a specific domain (software, business, HR, finance): write one context per agent for that domain.
 - If they chose "mix of everything": write three contexts per agent — `software.md`, `business.md`, and `general.md`.
 
-Use the project knowledge from Step 2 to make context files specific, not generic. A software context for a Node.js microservices project should mention async patterns, container boundaries, and API surface — not generic "check code quality."
+Use the project knowledge from Step 2 to make context files specific, not generic. A software context for a Node.js microservices project should mention async patterns, container boundaries, and API surface — not generic "check code quality." All the architectural detail you would have put in CLAUDE.md goes here instead.
 
 The context files are gitignored. They live locally. The user can generate new or updated ones any time with `/brief`.
 
