@@ -372,13 +372,13 @@ After all files are written:
 
 > One last thing — do you want to add a Board of Governance to this project?
 >
-> The board runs parallel AI agents (skeptic, optimist, security reviewer, etc.) that independently review your work and give you a synthesis. It installs as a **sibling directory** next to your project — completely outside the project tree so the board's skills never collide with your project's skills.
+> The board runs parallel AI agents (skeptic, optimist, security reviewer, etc.) that independently review your work and give you a synthesis. It installs as a **neighboring directory in the same parent** — completely outside the project tree so the board's skills never collide with your project's skills.
 >
 > It's useful for architecture reviews, security checks before releases, or any decision you want a second opinion on.
 
 If **yes:**
 
-Derive the board path from the project path — sibling directory, same parent:
+Derive the board path from the project path — neighboring directory in the same parent:
 
 ```bash
 # Board lives next to the project, not inside it
@@ -464,7 +464,7 @@ If **no:** Skip entirely.
 > - `CLAUDE.md` — project identity (~[X] lines)
 > - `SPEC.md` — architecture spec
 > - `tasks.md` — Phase 1: [N] tasks
-> [- `[project-name]-board/` — board wired in at sibling path]
+> [- `[project-name]-board/` — board wired in at neighboring path]
 >
 > **Do these steps in order:**
 >

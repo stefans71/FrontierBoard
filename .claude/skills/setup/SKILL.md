@@ -5,995 +5,167 @@ description: Set up the Board of Governance. Run when the user types /setup or a
 
 # Board of Governance — Setup
 
-Walk the user through setting up their board from scratch. This is a conversation, not a script. Ask questions, listen to answers, do the work. Only pause when you genuinely need the user to do something — paste a key, scan a QR code, open a browser.
+Walk the user through setting up their board. This is a conversation — ask questions, listen, do the work. Only pause when you genuinely need the user to act (paste a key, scan a QR code, open a browser). When something is broken, fix it yourself.
 
-When something is missing or broken, fix it. Don't tell the user to go fix it themselves unless it truly requires their hands.
-
-**Output formatting:** When you reach a new step, output its name as a markdown heading (e.g. `## Step 5: Compose the Board`). When asking about individual agents, use a heading for each (e.g. `### Agent 1`). This gives the user visual progress through the setup.
+**Output formatting:** Use markdown headings for each step (`## Step 3: Autonomous Mode`) and per-agent (`### Agent 1`).
 
 ---
 
-## Two Paths — Board vs Target
+## Paths
 
-This skill uses two directory paths. Keep them straight:
-
-- **`$BOARD`** — the FrontierBoard clone directory. This is where you are running from. All board files go here: `.board/`, agents, contexts, briefs, reports, `BOARD.md`. This is the only directory the board writes to.
-- **`$PROJ`** — the user's project that the board will review. Read-only. You scan it to understand the codebase, but you never create files in it (except integration skills — see below).
-
-If running from the FrontierBoard directory directly (user cloned and cd'd in), `$BOARD` is the current working directory.
-
-If invoked via the README bootstrap flow, `$BOARD` is the clone path (e.g. `~/myapp-board/FrontierBoard/`). The user's project is `$PROJ` (e.g. `~/myapp/`).
-
-**Everywhere this skill says `$BOARD/.board/`**, it means `$BOARD/.board/`. The board NEVER creates `.board/` inside the user's project.
+- **`$BOARD`** — the FrontierBoard clone directory. All board files go here: `.board/`, agents, reports. The board NEVER writes `.board/` inside the user's project.
+- **`$PROJ`** — the user's project. Read-only, except: you may append to `$PROJ/.gitignore` and create new files in `$PROJ/.claude/skills/`.
 
 ---
 
-## Host Project Safety Rules — Read Before Starting
+## Hard-Won Knowledge
 
-These rules apply for the entire setup. Never break them.
+These are operational facts Claude cannot derive from general training. Never remove them.
 
-**You may freely:**
-- Create and write anything inside `$BOARD/.board/**` — FrontierBoard's exclusive territory
-- Append to `$PROJ/.gitignore` — never modify or delete existing lines
-- Create **new** files and directories inside `$PROJ/.claude/skills/` — adding integration skills (including NanoClaw board-review skill)
+1. **`unset CLAUDECODE`** — All invocation commands for Claude Code agents must unset the `CLAUDECODE` env var. Without it, nested Claude sessions fail with "Cannot be launched inside another Claude Code session." Wrap in `bash -c 'unset CLAUDECODE && ...'`.
 
-**You may read but never modify:**
-- `$PROJ/.claude/settings.json`, `$PROJ/CLAUDE.md`, `$PROJ/src/`, and all other existing project files — read to understand, never change
+2. **`codex exec` not `codex`** — The bare `codex` command opens a TUI requiring an interactive terminal. It will silently fail as a subprocess. Always use `codex exec` for non-interactive invocation.
 
-**Never:**
-- Create `.board/` inside the user's project — it always goes in `$BOARD`
-- Delete, overwrite, or rename any file that already exists outside `$BOARD/.board/`
-- Modify existing `.gitignore` entries — only append new ones
-- Require the user to create directories or write files — you do all of that
+3. **Root always needs a board user** — Even in interactive mode, `--dangerously-skip-permissions` is blocked when running as root. If current user is root, ALWAYS create a board user regardless of mode choice.
 
-**Key distinction:** creating a *new* file in a directory that already exists (e.g. `$PROJ/.claude/skills/board-review/SKILL.md` when `.claude/` already exists) is always safe. Only writing to *existing* files outside `$BOARD/.board/` is off-limits.
+4. **Sudoers validation** — Always validate with `visudo -c -f <file>` after writing. A bad sudoers file can brick sudo. Use `chmod 0440`. Remove the file if validation fails.
 
-If the project has no `.claude/` directory: FrontierBoard still works entirely inside `$BOARD/.board/`. You can create `$PROJ/.claude/skills/board-review/` as new directories without issue. The project doesn't need an existing Claude setup for FrontierBoard to install.
+5. **Board user ownership** — After creating all agent directories, `chown -R $BOARD_USER:$BOARD_USER $BOARD/.board/`. Also ensure the board user can traverse parent directories.
+
+6. **Billing warnings are mandatory** — Always warn users about pay-per-use billing (OpenAI API, Anthropic API) before accepting keys. Recommend spend limits. Claude Pro/Max subscriptions have no extra charges — mention this.
 
 ---
 
-## Step 1: Welcome, Detect Integration Mode, Get the Project Path
+## Step 1: Welcome and Detect
 
-Introduce what's about to happen:
-
-> Welcome to Board of Governance setup. I'll set up a board of independent AI reviewers for your project. I do all the file and directory work — I'll only pause when I genuinely need something from you, like an API key.
+> Welcome to Board of Governance setup. I'll set up a board of independent AI reviewers for your project. I'll only pause when I genuinely need something from you.
 >
-> First: what's the path to the project this board will review? (e.g. `~/projects/my-app`)
->
-> If you haven't created the directory yet, tell me where you want it and I'll create it.
+> What's the path to the project this board will review?
 
-Once you have the path, expand it and set both path variables:
+Set `$PROJ` (project path) and `$BOARD` (FrontierBoard clone — current directory or clone path).
 
-```bash
-PROJ=$(eval echo [path])
-ls "$PROJ" 2>/dev/null && echo "exists" || echo "missing"
-```
+Silently detect integration mode by checking `$PROJ`:
+- **nanoclaw** — has `src/index.ts` + `container/build.sh` + `groups/`
+- **claude-project** — has `.claude/` but not NanoClaw
+- **standalone** — no AI tooling found
 
-**Set `$BOARD`** — the FrontierBoard clone directory. This is where you're running from:
-- If you're running from the FrontierBoard directory: `$BOARD` is the current working directory
-- If invoked via the README bootstrap: `$BOARD` is the clone path that was used in step 2
-
-All board files (`.board/`, agents, reports) go in `$BOARD`, never in `$PROJ`.
-
-If the project directory is missing, create it:
-```bash
-mkdir -p "$PROJ"
-```
-
-**Detect integration mode** — check silently, don't ask the user:
-
-```bash
-# Is this a NanoClaw project?
-ls "$PROJ/src/index.ts" "$PROJ/container/build.sh" "$PROJ/groups/" 2>/dev/null
-# Does it have any Claude setup?
-ls "$PROJ/.claude/" 2>/dev/null
-# Is it a git repo?
-git -C "$PROJ" rev-parse --git-dir 2>/dev/null
-```
-
-Set `INTEGRATION_MODE` to one of:
-- `nanoclaw` — NanoClaw project detected (has `src/index.ts` + `container/build.sh` + `groups/`)
-- `claude-project` — has `.claude/` but not NanoClaw
-- `standalone` — no AI tooling found; board will run standalone
-
-Note the integration mode. You will use it in Step 8 when wiring up the review bridge.
-
-Note both absolute paths: `$PROJ` (target project, read-only) and `$BOARD` (FrontierBoard clone, where `.board/` lives).
+Scan the project: read README, CLAUDE.md, SPEC.md, package manifests. Build a mental model of the stack for use in Step 5 (agent contexts).
 
 ---
 
-## Step 2: Read the Project
+## Step 2: Autonomous Mode
 
-Before asking the user anything else, read what's at the project path:
+> Do you want agents to run unattended in the background, or pause and ask before each action?
 
-```bash
-ls "$PROJ/CLAUDE.md" 2>/dev/null
-ls "$PROJ/SPEC.md" 2>/dev/null
-ls "$PROJ/tasks.md" 2>/dev/null
-ls "$PROJ/package.json" "$PROJ/pyproject.toml" "$PROJ/Gemfile" "$PROJ/go.mod" "$PROJ/Cargo.toml" 2>/dev/null
-cat "$PROJ/README.md" 2>/dev/null | head -60
-cat "$PROJ/CLAUDE.md" 2>/dev/null | head -40
-cat "$PROJ/SPEC.md" 2>/dev/null | head -40
-```
+If **not root**: note the choice and move on.
 
-From this, build a brief mental model of the project: what it is, what stack, how mature it is. You'll use this in Step 5 when writing agent contexts — agents who know they're reviewing a Node.js auth service write better findings than agents who know nothing.
+If **root** (see Hard-Won Knowledge #3): explain that AI tools block autonomous mode for root, and a separate user account is needed. Ask for a name (default: `llmuser`).
 
-If the project directory is empty or near-empty, note it. You'll tell the user the board is ready to review future work even if nothing is there yet.
+Create the board user: idempotent useradd, sudoers entry with visudo validation (see Hard-Won Knowledge #4). Do this yourself — don't ask the user to run commands.
 
 ---
 
-## Step 3: Autonomous Mode
+## Step 3: Review Domain
 
-Lead with the benefit before the technical explanation:
+> What will your board primarily review?
+> 1. Software  2. Business  3. HR/Hiring  4. Finance  5. Mix of everything
 
-> Do you want your board agents to run unattended — meaning they work in the background while you do something else, and come back with their reports ready? Or would you prefer they pause and ask you before each action so you stay in control of every step?
-
-If they say no (or prefer to stay in control) — note that agents will run in interactive mode and move on. No user setup needed.
-
-If they say yes (unattended/autonomous mode) — check whether the current user is root.
-
-If they are not root, autonomous mode will work as-is. Note it and move on.
-
-If they are root, explain the situation plainly before asking anything:
-
-> There's one thing to sort out first. The AI tools we'll be using — Claude Code, Codex, Qwen and others — have a built-in safety rule: they won't run fully unattended when the process has root (administrator) access to your machine. This isn't a FrontierBoard limitation — it's the tools protecting you from an autonomous process that could modify anything on your system.
->
-> The solution is a separate user account just for the board agents. Your own account stays untouched — your API keys and credentials just get copied across once. The board agents then run as that user. It takes about 2 minutes.
->
-> What would you like to call this account? The default is `llmuser`.
-
-Create the user with a home directory and bash shell. Run these commands yourself — don't ask the user to run them:
-
-```bash
-id llmuser 2>/dev/null || useradd -m -s /bin/bash llmuser   # or whatever name they chose
-# Add sudoers entry (idempotent — check before appending)
-SUDOERS_FILE="/etc/sudoers.d/frontierboard"
-SUDOERS_LINE="$(whoami) ALL=(llmuser) NOPASSWD:ALL"
-if [ ! -f "$SUDOERS_FILE" ] || ! grep -qF "$SUDOERS_LINE" "$SUDOERS_FILE"; then
-  echo "$SUDOERS_LINE" > "$SUDOERS_FILE"
-  chmod 0440 "$SUDOERS_FILE"
-  visudo -c -f "$SUDOERS_FILE" || { echo "ERROR: sudoers syntax check failed"; rm -f "$SUDOERS_FILE"; exit 1; }
-fi
-```
-
-Note the board user name — all agent invocation commands will use it.
-
-**Important — root users always need a board user:** Even if the user chose interactive mode, agents run as subprocesses that need `--dangerously-skip-permissions`. This flag is blocked when running as root. So if the current user is root, ALWAYS create the board user regardless of interactive/autonomous choice. The only difference is that in interactive mode, the board user doesn't need `--dangerously-skip-permissions` — but the subprocess invocation still requires a non-root user.
+If "mix" — explain that agents have stable thinking styles and you'll load domain-specific context automatically per review.
 
 ---
 
-## Step 4: What Will the Board Review?
+## Step 4: Compose the Board
 
-Ask:
+Explain the concept briefly:
 
-> What will your board primarily be reviewing? Pick the one that fits best — you can always add more later.
+> Each board member is an AI agent with a **thinking style** — how they approach any question. That stays stable. I load domain context per review. Think about *how* you want things questioned, not what domain.
 >
-> 1. Software — code, architecture, integration quality
-> 2. Business decisions — strategy, pricing, partnerships, go-to-market
-> 3. HR and hiring — candidates, team decisions, org structure
-> 4. Finance — investments, budgets, financial models
-> 5. Mix of everything — I'll figure it out as I go
+> How many agents? Two minimum, three gives a tiebreaker, more than four gets noisy.
 
-Note the answer. You'll use it in Step 5 to give the user domain-relevant role suggestions, and in Step 7 to write the right context files.
-
-If they pick 1–4, note the primary domain.
-
-If they pick 5, tell them briefly how that works before moving on — don't leave them wondering:
-
-> No problem. Here's how that works: each agent gets a stable thinking style (like "the skeptic" or "the systems thinker"), and I'll write separate context files for software, business, and general use. When you send a review request, the board orchestrator reads it and loads the right context automatically — so a code review gets the software lens and a business decision gets the business lens. You don't need to configure anything per review.
-
-Note: write three contexts per agent (software, business, general) later in Step 7.
+For each agent, ask:
+1. **Thinking style** — offer domain-relevant suggestions (skeptic, systems thinker, pragmatist, contrarian, or custom)
+2. **CLI** — Claude Code, Codex, or Qwen. If unsure, suggest Claude Code (no extra charges with Pro/Max subscription). Mention Qwen has a free tier. Warn that Codex uses pay-per-use API billing.
 
 ---
 
-## Step 5: Compose the Board
+## Step 5: CLI Setup
 
-Before asking anything, briefly explain what an agent is and how thinking styles work — this prevents the confusion of trying to map abstract role names onto specific domains:
+For each unique CLI across all agents, check if installed and authenticated. Report findings, then fix what's missing.
 
-> Each board member is an AI agent — an independent AI that reviews your work and writes a report. They all see the same thing, but write their findings separately, so you get genuinely different perspectives rather than one consensus view.
->
-> Each agent has a **thinking style** — the way they approach any question. That's what stays stable. What changes per review is the **context**: I'll load a software lens for code reviews, a business lens for strategy questions, and so on. So when you're picking agents, think about *how* you want things questioned, not *what domain* they specialise in.
+**Auth guidance per CLI:**
+- **Claude Code**: Subscription (browser login) or API key (console.anthropic.com). Recommend subscription path.
+- **Codex**: Clarify ChatGPT subscription ≠ API access. API is separate pay-per-use at platform.openai.com. Strongly recommend spend limits.
+- **Qwen**: DashScope API key from bailian.console.aliyun.com. Has a free tier (Bailian Coding Plan).
 
-Ask:
+Explain once: credentials are global (one login per machine), settings are per-agent.
 
-> How many agents do you want on your board? Two is the minimum for independent perspectives. Three gives you a tiebreaker. More than four gets noisy.
-
-Then for each agent, output a heading (`### Agent [N]`) and ask about their thinking style. Frame the question based on what domain(s) they chose in Step 4:
-
-**If they chose a specific domain (e.g. software):**
-
-> Tell me about agent [number]. What's their angle when reviewing [domain]? Pick a number or describe your own:
->
-> 1. **Security-focused** — always looks for what could break or be exploited
-> 2. **Architecture** — asks whether this is the simplest solution that could work
-> 3. **Systems/integration** — traces what happens downstream when something changes
-> 4. **Contrarian** — pushes back on every assumption — why are we doing it this way at all?
-> 5. **Something else** — describe it and I'll write the role
-
-**If they chose "mix of everything":**
-
-> Tell me about agent [number]. What's their thinking style? Pick a number or describe your own:
->
-> 1. **The Skeptic** — challenges every assumption, asks "what could go wrong?" and "what are we not seeing?"
-> 2. **The Systems Thinker** — traces how things connect and what the second-order effects are
-> 3. **The Pragmatist** — focuses on what's actually feasible given real constraints
-> 4. **The Contrarian** — argues the opposite position to stress-test the logic
-> 5. **Something else** — describe it and I'll write the role
->
-> These work across any domain — code, strategy, hiring, finance.
-
-After each agent's thinking style is confirmed, ask about CLI:
-
-> Which tool should this agent run on — Claude (by Anthropic), Codex (by OpenAI), Qwen (by Alibaba), or something else? I'll handle all the setup; you just need to pick a provider.
-
-If the user isn't sure which to pick, suggest Claude Code as a default and briefly explain: "Claude Code is a good default — if you have a Claude Pro or Max subscription at claude.ai, there are no extra charges for using it here. Qwen is also a good starting point because it has a free tier. Codex uses OpenAI's API, which has separate pay-per-use billing — a ChatGPT subscription doesn't cover it automatically, so there's a bit more setup involved."
-
-Note the provider for each agent. You will use this in Step 6 to set up CLIs and in Step 7 to create settings bubbles.
+If a board user was created, copy credential files from current user's home to board user's home.
 
 ---
 
-## Step 6: CLI Setup
+## Step 6: Build the Agents
 
-For each unique provider across all agents, check whether that CLI is installed and authenticated.
+For each agent, create their directory at `$BOARD/.board/board/{agent-name}/` with:
+- `inbox/`, `outbox/`, `learnings/`, `contexts/`
+- Settings bubble for their CLI (Claude: `.claude/settings.json` allowing all tools + model. Codex: `.codex/config.toml` with approval=never + project doc pointing to CLAUDE.md. Qwen: `.qwen/settings.json` with yolo mode.)
+- `CLAUDE.md` — agent identity. Domain-agnostic thinking style, NOT domain knowledge. Cover: who they are, how they think, what they're reviewing (one sentence naming the project), output format (structured findings with severity/location/finding/scenario/recommendation), rules (blind review, write report first, load context from inbox).
 
-Check quietly — don't narrate every check. Just report what you find:
-
-> Here's what I found:
-> - Claude Code: installed and authenticated
-> - Codex: installed, not authenticated
-> - Qwen: not installed
-
-For anything missing or unauthenticated, ask:
-
-> Would you like help getting [CLI] set up?
-
-If yes, walk through it for that CLI:
-
-**Claude Code:**
-
-Check if Claude Code is installed (`which claude`). If not, tell the user:
-
-> I'll install Claude Code now. This is Anthropic's official command-line tool for running Claude.
-
-Run the install command yourself. If the environment doesn't allow it, give the user the exact command:
-
-```bash
-npm install -g @anthropic-ai/claude-code
-```
-
-For authentication, explain the two options clearly — many users have a Claude subscription (claude.ai) but not an API key, and these are different things:
-
-> There are two ways to authenticate Claude Code:
->
-> **Option A — Claude subscription (claude.ai/pro or max):** If you already pay for Claude at claude.ai, you can use that account directly. I'll run `claude` and it will open a browser login. You sign in with your claude.ai account and that's it.
->
-> **Option B — API key:** If you want to use a separate API key (for billing control or if you don't have a subscription), go to console.anthropic.com → sign in → API Keys → Create Key. Paste the key here and I'll store it securely.
->
-> Which do you have — a claude.ai subscription or an API key?
-
-If subscription: run `claude --dangerously-skip-permissions -p "echo hello"` and direct them to complete the browser flow. This is the preferred path — no per-use charges.
-
-If API key: explain billing before asking for the key:
-
-> Anthropic API keys are pay-per-use with no monthly cap by default. Before using one, please set a spend limit:
->
-> 1. Go to console.anthropic.com → sign in → Settings → Billing → Spend limits
-> 2. Set a monthly limit (e.g. $10 is plenty for casual board use)
->
-> Then go to API Keys → Create Key, copy it, and paste it here.
-
-If there's no spend limit option on their plan, strongly advise using the subscription path instead.
-
-**Codex:**
-
-Check if the Codex CLI is installed (`which codex`). If not, install it. Direct them to the Codex GitHub repo for the current install command — don't hardcode a package name here as it can change.
-
-For authentication, first clarify which OpenAI product they have — these are common sources of confusion:
-
-> Before we set up Codex, I need to check which OpenAI product you have, because they're completely separate things with different billing:
->
-> - **ChatGPT subscription** ($20/month at chat.openai.com) — this gives you access to the ChatGPT web interface and app. It does **not** automatically include API access.
-> - **OpenAI API key** (from platform.openai.com) — this is separate, pay-per-use billing. Each request costs a small amount based on how much text is processed. There's no monthly cap unless you set one yourself.
->
-> Which do you have?
-
-**If they have a ChatGPT subscription only:**
-
-> A ChatGPT subscription doesn't include API access by default. To use Codex, you'd need to go to platform.openai.com and either:
-> - Check if your paid plan includes API credits (sign in → Billing → look for included credits)
-> - Or add a separate payment method for API usage
->
-> API usage is charged per request — for typical board reviews it's usually pennies, but there's no monthly cap unless you set a spend limit yourself. Would you like to set that up, or would you prefer to use a different provider like Claude Code (which has a flat monthly subscription) or Qwen (which has a free tier)?
-
-Only proceed with API key setup if the user explicitly wants to. If they do:
-
-> **Important before you get a key:** OpenAI API billing is pay-per-use with no monthly cap by default. A board review typically costs a few cents, but a runaway process could spend much more. Before using an API key, please set a spending limit:
->
-> 1. Go to platform.openai.com → sign in
-> 2. Click your profile icon → Billing → Usage limits
-> 3. Set a monthly spend limit (e.g. $10 is plenty for casual board use)
->
-> Once you've set a limit, go to API Keys → Create new secret key, copy it (you'll only see it once), and paste it here.
-
-If there is no spend limit feature available on their plan, tell them clearly:
-
-> OpenAI doesn't offer a spend limit option for your account type. This means API usage has no cap and unexpected charges are possible. I'd strongly recommend using Claude Code (flat monthly subscription, no per-use charges) or Qwen (free tier available) instead. Are you sure you want to continue with an API key?
-
-Store the API key in their environment only after they've confirmed they understand the billing and have set a limit if available.
-
-**Qwen:**
-
-Check if the Qwen CLI is installed. If not, install it. Direct them to the Qwen Code GitHub repo for the current install command.
-
-For authentication:
-
-> Qwen uses a DashScope API key from Alibaba's Bailian platform. The good news: Qwen has a free tier through the "Bailian Coding Plan", which is enough for most board use without any charges.
->
-> To get your key:
-> 1. Go to bailian.console.aliyun.com and sign up (it's free)
-> 2. Look for the "Bailian Coding Plan" and activate it — this gives you free API quota
-> 3. Go to API Keys, create a new key, and copy it
->
-> Paste it here when you're ready.
-
-If they go beyond the free tier and onto paid usage, note that DashScope does have a quota/spend limit feature in the console — advise them to set one before using paid quota. If there is no limit feature available on their plan, advise them to stick to the free tier and not add payment details until they understand the per-use billing.
-
-**Other providers:**
-If the user wants a CLI you don't recognise, ask them what CLI it uses, how it authenticates, and what its settings file format is. Adapt the setup accordingly.
-
-**Auth and settings are separate — explain this once:**
-
-> Just so you know — your credentials (API keys, login tokens) live globally in your home directory. That's standard for all these tools and it only needs to happen once per machine. Each agent will have its own separate settings file that controls how it behaves, but that's different from your credentials. If you have three Claude agents, they all share one login but each has its own personality and instructions.
-
-If a board user was created in Step 3, copy the relevant credential files from the current user's home directory into the board user's home directory for each provider being used. Do this yourself — don't ask the user to do it.
+**Context files** go in `contexts/{domain}.md`. This is where ALL domain-specific knowledge lives — architecture, tech stack, key files, threat models. Tailor to each agent's thinking style. Write one context per domain chosen in Step 3, or three (software, business, general) if they chose "mix."
 
 ---
 
-## Step 7: Build the Agents
+## Step 6b: Fix Ownership
 
-All agent directories live inside `$BOARD/.board/board/`. The board itself lives at `$BOARD/.board/`.
-
-For each agent the user described in Step 5, create their directory and everything in it.
-
-**Directory structure for each agent:**
-
-Create the agent directory inside `$BOARD/.board/board/`. The name should reflect the agent's role — lowercase, hyphens, no spaces. For example: `$BOARD/.board/board/skeptic/`, `$BOARD/.board/board/systems-thinker/`.
-
-Inside each agent directory, create:
-- An inbox folder
-- An outbox folder
-- A learnings folder
-- A settings bubble for their CLI (see below)
-- A CLAUDE.md that defines who they are
-- A contexts folder (gitignored — generated content lives here)
-
-**Settings bubble:**
-
-This is the most important structural detail. Each agent directory gets a settings file for their specific CLI. When that CLI runs from this directory, it finds this file first and stops walking up the tree. The agent's behaviour is fully isolated from your interactive session and from every other agent.
-
-For a Claude agent, create a `.claude` folder containing a `settings.json` that allows all tools without prompting and sets the model. Do not put credentials here — only behaviour settings.
-
-For a Codex agent, create a `.codex` folder containing a `config.toml` that sets approval policy to never and loads CLAUDE.md as the project context document. Include a brief developer instructions block pointing to CLAUDE.md for full SOPs.
-
-**Important — Codex invocation in BOARD.md:** When writing the invocation command for this agent in Step 8, you MUST use `codex exec`, not bare `codex`. The plain `codex` command opens a TUI (terminal user interface) that requires an interactive terminal — it will refuse to run as a subprocess and fail silently or crash. `codex exec` is the non-interactive subcommand designed for scripted use. Always write the invocation with this comment block above it so future users understand why the flag looks alarming:
-
-```bash
-# codex exec is the non-interactive subcommand — the default `codex` command is a
-# TUI app that requires an interactive terminal and cannot run as a subprocess.
-# --dangerously-bypass-approvals-and-sandbox skips the approval prompt, which is
-# required for autonomous subprocess execution. The agent runs from its own isolated
-# board directory with no access to your project, credentials, or system outside
-# that folder. This flag is a Codex CLI requirement, not a FrontierBoard security
-# decision — FrontierBoard never touches your API keys or credentials.
-sudo -u [board-user] codex exec --dangerously-bypass-approvals-and-sandbox \
-  "read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md"
-```
-
-Replace `[board-user]` with `llmuser` (or whatever the board user is called), or drop the `sudo -u` prefix if no board user was created.
-
-For a Qwen agent, create a `.qwen` folder containing a `settings.json` that sets yolo mode and loads CLAUDE.md as the context file.
-
-For other CLIs, ask the user where that CLI looks for a local settings file, then create it with the equivalent of "full auto, no prompts." Only configure autonomous settings if the user chose autonomous mode in Step 3.
-
-**CLAUDE.md for each agent:**
-
-Write this from the user's description of the agent's thinking style, combined with what you learned about the project in Step 2. This is the agent's identity — stable across all reviews, regardless of domain.
-
-It should cover:
-- **Who they are**: their thinking style and what they always bring to any question — frame this as a cognitive approach, not a domain role. "Always looks for the failure mode no one's thought of" is better than "software security expert."
-- **How they think**: their reasoning style, what they instinctively question, what they tend to challenge, what they treat as a red flag
-- **What they're reviewing**: one sentence naming the project — just enough so they know the subject. Example: "You are a board reviewer for NanoClaw, a multi-channel AI assistant." No architectural details, no tech stack, no domain-specific threat models — that all belongs in context files.
-- **Their output format**: structured findings with severity, reference (file path, section, or topic), description, and recommended action
-- **Their rules**: write report first, blind review (no reading other reports before writing their own), no coordination with other agents, always load the context file from their inbox before starting
-
-The CLAUDE.md must be domain-agnostic. A good CLAUDE.md for "The Skeptic" should make them equally useful reviewing a PR, a pricing decision, or a hiring scorecard — without needing to be rewritten for each. Domain-specific knowledge (architecture, threat models, tech stack, key files, complexity hotspots) goes in context files, NOT in CLAUDE.md. The agent's identity is how they think. The context file tells them what they're looking at today.
-
-**Contexts:**
-
-Context files tell the agent what lens to apply for a specific type of review. This is where all domain-specific and project-specific knowledge lives — architecture, tech stack, key files, threat models, complexity hotspots, known risks. None of this goes in CLAUDE.md.
-
-A context file goes in `$BOARD/.board/board/{agent}/contexts/{domain}.md`. It covers:
-- **Project architecture**: tech stack, key files, how components connect, data flow
-- **Domain lens**: what questions to ask in this domain, what failure modes are common, what a strong finding looks like
-- **Agent-specific focus**: tailored to this agent's thinking style. The Skeptic's software context should emphasise attack surfaces and trust boundaries. The Systems Thinker's should emphasise data flow and component contracts. The Simplicity Advocate's should emphasise complexity hotspots and abstraction costs.
-
-Write context files now based on the domain the user chose in Step 4:
-- If they chose a specific domain (software, business, HR, finance): write one context per agent for that domain.
-- If they chose "mix of everything": write three contexts per agent — `software.md`, `business.md`, and `general.md`.
-
-Use the project knowledge from Step 2 to make context files specific, not generic. A software context for a Node.js microservices project should mention async patterns, container boundaries, and API surface — not generic "check code quality." All the architectural detail you would have put in CLAUDE.md goes here instead.
-
-The context files are gitignored. They live locally. The user can generate new or updated ones any time with `/brief`.
-
-**How the orchestrator uses contexts at runtime:**
-
-Write a note in the orchestrator's CLAUDE.md (Step 8) explaining this — the user doesn't need to configure it per review:
-
-When a review request arrives (from the user directly or via the bridge from NanoClaw), the orchestrator:
-1. Reads the review request and infers the domain (software, business, etc.)
-2. Copies the matching context file from each agent's `contexts/` folder into their `inbox/`
-3. Adds the brief to each agent's inbox
-4. Runs all agents in parallel
-5. Collects reports from each agent's outbox and synthesises them
-
-The user just describes what they want reviewed. The orchestrator handles context selection automatically.
+If a board user exists, chown all of `.board/` to that user and ensure parent directory traversal (see Hard-Won Knowledge #5).
 
 ---
 
-## Step 7b: Fix Ownership for Board User
+## Step 7: Board Identity and Integration
 
-If a board user was created in Step 3 (root + autonomous OR root + interactive), the board files are currently owned by root. The board user needs to own them:
+### Board orchestrator CLAUDE.md
 
-```bash
-if [ -n "$BOARD_USER" ]; then
-  chown -R "$BOARD_USER:$BOARD_USER" "$BOARD/.board/"
-  # Board user also needs to traverse the path to the board
-  # Check if the parent directories are accessible
-  BOARD_PARENT="$(dirname "$BOARD")"
-  if ! sudo -u "$BOARD_USER" test -x "$BOARD_PARENT" 2>/dev/null; then
-    chmod o+x "$BOARD_PARENT"
-    echo "Note: Added execute permission on $BOARD_PARENT so the board user can access the board directory."
-  fi
-fi
-```
+Write `$BOARD/.board/CLAUDE.md` — the orchestrator identity. Include: project name/path/stack, agent table (name, dir, CLI, style), how reviews work (detect domain → copy context → write brief → run agents → synthesise → write to REVIEW-LOG.md), available commands (/new-agent, /brief, /run).
 
-This must happen after all agent directories are created and before the smoke test.
+### BOARD.md
 
----
+Write `$BOARD/.board/board/BOARD.md` — operational source of truth. Include: project path, autonomous mode, board user, per-agent invocation commands, parallelism pattern (run all agents in parallel, wait for all).
 
-## Step 8: Write Board Identity Files and Wire Integration
+**All Claude Code invocation commands MUST include `unset CLAUDECODE`** (see Hard-Won Knowledge #1). **All Codex invocations MUST use `codex exec`** (see Hard-Won Knowledge #2).
 
-**`$BOARD/.board/CLAUDE.md`**
+### Integration bridge
 
-This is the board orchestrator's identity. Write it now using the template below. Fill in everything in brackets from what you've learned.
+**nanoclaw:** Create `$BOARD/.board/bridge/run-review.sh` (executable) that accepts a brief, writes to board inbox, switches to board user if root, runs the orchestrator. Create a NanoClaw skill at `$PROJ/.claude/skills/board-review/SKILL.md` that tells NanoClaw Claude how to invoke the bridge with timing estimates and a polling pattern. Add bridge section to BOARD.md.
 
-```markdown
-# Board of Governance
+**claude-project:** Create a skill at `$PROJ/.claude/skills/board-review/SKILL.md` (or `frontierboard-review` if name is taken) that triggers the board from any Claude session. Include timing estimates, background launch with nohup, polling, and cleanup. Check for existing skill — if it's a previous FrontierBoard install, offer to update; if unrelated, use alternate name. Add integration section to BOARD.md. Tell the user what was created and how to use it.
 
-You are the Board of Governance orchestrator for [project name].
-
-## Project
-
-Path: [absolute project path]
-Stack: [what you found in Step 2, or "not yet determined"]
-What it is: [one sentence from README/CLAUDE.md, or "project is in early setup"]
-
-## Your Role
-
-Coordinate the board agents. Run briefs, collect reports, synthesise findings.
-You do not review work yourself — your agents do. Your job is to run them well
-and give the user a clear synthesis they can act on.
-
-## Agents
-
-[For each agent: name, directory, CLI, thinking style in one sentence]
-
-## How Reviews Work
-
-When a review request arrives — from the user directly or via a project bridge:
-
-1. Read the request and decide which domain lens to apply (software, business, general, etc.)
-2. Copy the matching context file from each agent's `contexts/` folder into their `inbox/`
-3. Write the brief to each agent's `inbox/` (agents must not see each other's inboxes)
-4. Run all agents in parallel (see BOARD.md for exact commands)
-5. Wait for all outbox reports to appear
-6. Synthesise all reports into a single finding set, noting agreement and divergence
-7. Write synthesis to `board/REVIEW-LOG.md`
-
-The caller does not specify which context to use — infer it from the review request.
-
-## Commands
-
-To add an agent: /new-agent
-To set a review brief: /brief
-To run the board: /run
-```
-
-**`$BOARD/.board/board/BOARD.md`**
-
-This is the operational source of truth. Write it with:
-- The project name and absolute path
-- Whether agents run autonomously or interactively
-- The board user if one was created (otherwise the current user)
-- For each agent: name, directory, CLI, model, thinking style, and the exact command to invoke them
-- The parallelism pattern — how to run all agents in parallel and wait for completion
-- The bridge section (see below, varies by integration mode)
-
-**IMPORTANT — all invocation commands must include `unset CLAUDECODE`** before running any Claude Code agent. The `CLAUDECODE` environment variable blocks nested Claude sessions. Without unsetting it, agents invoked from within a Claude Code session will fail with "Cannot be launched inside another Claude Code session." Wrap commands in `bash -c '...'` to scope the unset. Example:
-
-```bash
-sudo -u [board-user] bash -c 'unset CLAUDECODE && cd [agent-dir] && claude --dangerously-skip-permissions -p "..."'
-```
+**standalone:** Add a "Running a Review" section to BOARD.md with the direct command.
 
 ---
 
-**Wire the integration bridge — based on the INTEGRATION_MODE detected in Step 1:**
+## Step 8: Update .gitignore
 
-**If `nanoclaw`:**
-
-The user never manually triggers board reviews — NanoClaw Claude handles it. Wire this up now:
-
-1. Create `$BOARD/.board/bridge/` directory.
-
-2. Write `$BOARD/.board/bridge/run-review.sh`:
-
-```bash
-#!/usr/bin/env bash
-# Called by NanoClaw IPC handler when a board review is requested.
-# Usage: run-review.sh "Brief text or path to brief file"
-set -euo pipefail
-BOARD_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-BRIEF="${1:-}"
-if [ -z "$BRIEF" ]; then
-  echo "Usage: run-review.sh <brief>" >&2
-  exit 1
-fi
-mkdir -p "$BOARD_DIR/board/inbox"
-echo "$BRIEF" > "$BOARD_DIR/board/inbox/request.md"
-cd "$BOARD_DIR"
-
-# Unset CLAUDECODE so nested Claude Code instances aren't blocked
-unset CLAUDECODE
-
-# If running as root and a board user exists, switch to it
-BOARD_USER="${FRONTIERBOARD_USER:-llmuser}"
-if [ "$(id -u)" = "0" ] && id "$BOARD_USER" &>/dev/null; then
-  BOARD_HOME="$(getent passwd "$BOARD_USER" | cut -d: -f6)"
-  exec sudo -u "$BOARD_USER" env HOME="$BOARD_HOME" \
-    claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
-else
-  exec claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
-fi
-```
-
-The `FRONTIERBOARD_USER` env var defaults to `llmuser` but can be overridden if the user chose a different name during setup.
-
-Make it executable: `chmod +x $BOARD/.board/bridge/run-review.sh`
-
-3. Write a NanoClaw skill that tells NanoClaw Claude how to invoke the bridge.
-
-First check whether `board-review` is already taken in the NanoClaw skills directory:
-
-```bash
-ls "$PROJ/.claude/skills/board-review/SKILL.md" 2>/dev/null && echo "exists" || echo "free"
-```
-
-- If free: use `board-review` as the skill name.
-- If exists and contains FrontierBoard content: offer to update it (same rule as the `claude-project` path above).
-- If exists and is unrelated: use `frontierboard-review` as the skill name.
-
-Create `$PROJ/.claude/skills/{skill-name}/SKILL.md`:
-
-```markdown
----
-name: board-review
-description: Request a board review via FrontierBoard. Use when asked to "review", "get a second opinion on", or "run the board on" something.
----
-
-# Board Review
-
-When the user asks for a board review, write their request as a brief and
-invoke the FrontierBoard bridge.
-
-The board lives at: [BOARD_PATH]/.board/
-The bridge script is at: [BOARD_PATH]/.board/bridge/run-review.sh
-
-## Timing warning
-
-Board reviews take 8–45 minutes depending on which agents are configured:
-- Claude Code and Qwen agents: ~8–12 min each
-- Codex (o4-series) agents: ~40 min each
-
-A board with mixed providers is bottlenecked by the slowest agent. Do NOT
-block on the bridge command — use the polling pattern below so the user
-receives progress updates and the connection stays alive.
-
-## Steps
-
-1. Write the review request as a markdown brief at
-   `[BOARD_PATH]/.board/board/inbox/request.md`. Include:
-   - What specifically is being reviewed (file paths, topic, decision)
-   - What questions the board should answer
-   - The domain: software / business / general
-
-2. Tell the user the review has started and give a realistic time estimate
-   based on which agents are on this board. Example:
-   "Starting board review. Claude and Qwen agents typically finish in
-   8–12 minutes; if Codex is on the board it may take up to 45 minutes.
-   I'll send you updates as agents complete."
-
-3. Start the bridge in the background:
-   ```bash
-   nohup [BOARD_PATH]/.board/bridge/run-review.sh > /tmp/board-bridge.log 2>&1 &
-   echo $! > /tmp/board-bridge.pid
-   ```
-
-4. Poll every 5 minutes until the review log appears:
-   ```bash
-   while [ ! -f "[BOARD_PATH]/.board/board/REVIEW-LOG.md" ] && \
-         kill -0 $(cat /tmp/board-bridge.pid 2>/dev/null) 2>/dev/null; do
-     sleep 300
-   done
-   ```
-   After each 5-minute sleep, send the user a brief status message so they
-   know it's still running: "Board still working — [N] min elapsed."
-   This keeps the NanoClaw connection alive during long Codex reviews.
-
-5. When the log appears, read it:
-   ```bash
-   cat [BOARD_PATH]/.board/board/REVIEW-LOG.md
-   ```
-
-6. Summarise the key findings for the user. Highlight where agents agreed
-   and where they diverged — divergence is often the most valuable signal.
-
-7. Clean up:
-   ```bash
-   rm -f /tmp/board-bridge.pid /tmp/board-bridge.log
-   ```
-
-The user does not need to know the internal mechanics — just keep them
-informed of progress and timing.
-```
-
-Replace `[BOARD_PATH]` with the actual absolute path to the FrontierBoard clone (i.e. `$BOARD`), `[PROJ_PATH]` with the project path, and `{skill-name}` with the chosen name.
-
-4. Tell the user what the flow looks like, including timing:
-
-> I've wired FrontierBoard into NanoClaw. Here's how it works:
->
-> You message NanoClaw: "Review the authentication code I just wrote."
-> NanoClaw starts the board and sends you a timing estimate straight away.
-> Every 5 minutes while agents are working, it sends you a brief update.
-> When all agents are done, NanoClaw sends the synthesis.
->
-> Typical times: 10–15 minutes for Claude/Qwen-only boards. Up to 45 minutes if a Codex agent is on the board — it's thorough but slow.
->
-> You don't need to interact with FrontierBoard directly at all.
-
-Add to `BOARD.md`:
-
-```markdown
-## NanoClaw Bridge
-
-FrontierBoard is integrated with NanoClaw. The user never invokes the board
-directly — NanoClaw Claude handles it via the board-review skill.
-
-Bridge script: [BOARD_PATH]/.board/bridge/run-review.sh
-NanoClaw skill: [PROJ_PATH]/.claude/skills/board-review/SKILL.md
-
-To trigger manually (for testing):
-  [BOARD_PATH]/.board/bridge/run-review.sh "Review [topic]"
-```
-
-**If `claude-project`:**
-
-The existing project's Claude doesn't automatically know FrontierBoard exists. Wire it in by creating a skill file in `.claude/skills/`. Claude Code scans that directory on startup, so the skill is available immediately.
-
-**First — check whether the skill name is already taken:**
-
-```bash
-ls "$PROJ/.claude/skills/board-review/SKILL.md" 2>/dev/null && echo "exists" || echo "free"
-```
-
-Three outcomes:
-
-**A) Path is free** — create the skill as normal. Go to step 1 below.
-
-**B) Path exists and contains FrontierBoard content** — check whether it's an older install:
-
-```bash
-grep -l "FrontierBoard" "$PROJ/.claude/skills/board-review/SKILL.md" 2>/dev/null
-```
-
-If it matches, offer the user a choice:
-
-> There's already a FrontierBoard board-review skill at `.claude/skills/board-review/SKILL.md`. It looks like a previous install. Would you like me to update it to the current version, or leave it as-is?
-
-If they say update: overwrite it (this is the one case where overwriting an existing file outside `.board/` is permitted — it's a previous FrontierBoard file, not the user's own work). If they say leave it: note the existing path and skip to the BOARD.md step.
-
-**C) Path exists but is NOT a FrontierBoard file** — the project already has a `board-review` skill for something else. Do not touch it. Use `frontierboard-review` as the skill name instead:
-
-```bash
-# Use frontierboard-review as the skill directory name
-SKILL_NAME="frontierboard-review"
-SKILL_DIR="$PROJ/.claude/skills/$SKILL_NAME"
-```
-
-Remember the skill name chosen — you'll need it for BOARD.md and for the user notification.
-
-**1. Write the skill file** at `$PROJ/.claude/skills/{skill-name}/SKILL.md`:
-
-```markdown
----
-name: {skill-name}
-description: Request a FrontierBoard review. Use when the user asks to "review", "get a second opinion on", "run the board on", or "have the board look at" something. Also use proactively when completing a significant change and a review would add value.
----
-
-# Board Review
-
-FrontierBoard is installed at [BOARD_PATH]/.board/ and provides independent
-multi-agent review. Use it when the user asks for a review, or when you judge
-that independent perspectives would meaningfully improve a decision or output.
-
-## Timing
-
-Board reviews take 8–45 minutes depending on which agents are configured:
-- Claude Code and Qwen agents: ~8–12 min each
-- Codex (o4-series) agents: ~40 min each
-
-Use the polling pattern below — do not block on the bridge command.
-
-## How to trigger a review
-
-1. Write a brief to `[BOARD_PATH]/.board/board/inbox/request.md`. Include:
-   - What specifically is being reviewed (file paths, topic, decision)
-   - What questions the board should answer
-   - The domain: software / business / general
-
-2. Tell the user the review is starting and give a timing estimate.
-
-3. Start the bridge in the background:
-   ```bash
-   nohup bash -c 'cd [BOARD_PATH]/.board && unset CLAUDECODE && claude --dangerously-skip-permissions \
-     -p "read CLAUDE.md then /run"' > /tmp/board-bridge.log 2>&1 &
-   echo $! > /tmp/board-bridge.pid
-   ```
-
-4. Poll every 5 minutes until the review log appears, writing a brief
-   status update to the user each cycle so the session stays alive:
-   ```bash
-   while [ ! -f "[BOARD_PATH]/.board/board/REVIEW-LOG.md" ] && \
-         kill -0 $(cat /tmp/board-bridge.pid 2>/dev/null) 2>/dev/null; do
-     sleep 300
-   done
-   ```
-
-5. Read and summarise the synthesis:
-   ```
-   [BOARD_PATH]/.board/board/REVIEW-LOG.md
-   ```
-   Highlight where agents agreed and where they diverged.
-
-6. Clean up: `rm -f /tmp/board-bridge.pid /tmp/board-bridge.log`
-
-## When NOT to use it
-
-- For quick factual questions — answer directly
-- When the user just wants a fast check, not an independent review
-- If the board was already run on this topic recently (check REVIEW-LOG.md)
-```
-
-Replace `[BOARD_PATH]` with the actual absolute path to the FrontierBoard clone (i.e. `$BOARD`), `[PROJ_PATH]` with the project path, and `{skill-name}` with the chosen name.
-
-**2. Add to `BOARD.md`:**
-
-```markdown
-## Project Claude Integration
-
-FrontierBoard is integrated with the host project's Claude via:
-  [PROJ_PATH]/.claude/skills/{skill-name}/SKILL.md
-
-The project's Claude will use this skill automatically when asked for a review.
-Trigger phrase: "/{skill-name}" or natural language ("review xyz", "get a second opinion on xyz")
-
-To trigger manually (for testing or scripting):
-  echo "Review: [topic]" > [BOARD_PATH]/.board/board/inbox/request.md
-  cd [BOARD_PATH]/.board && unset CLAUDECODE && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
-```
-
-**3. Tell the user explicitly what was done and how to use it** — always do this, regardless of which path (A/B/C) was taken:
-
-> I've added FrontierBoard integration to your project's Claude.
->
-> **What I created:** `.claude/skills/{skill-name}/SKILL.md`
->
-> **How to use it:** Open Claude Code from your project directory (`{PROJ_PATH}`) and say something like:
-> - "Review the code in `src/auth.ts`"
-> - "Get a second opinion on this architecture decision"
-> - "/{skill-name}" to trigger it explicitly
->
-> Claude will run the board, wait for the agents to finish, and summarise the findings for you. The whole process takes 2–5 minutes depending on what's being reviewed.
->
-> **The skill file is safe to commit** — it contains no credentials, just instructions. Anyone who clones your repo gets the board integration working immediately.
-
-If the skill was renamed to `frontierboard-review` (path C), add:
-
-> Note: I used the name `frontierboard-review` instead of `board-review` because your project already has a `board-review` skill for something else. Use `/frontierboard-review` to trigger it explicitly, or just describe what you want reviewed in plain language.
-
-**If `standalone`:**
-
-The user invokes the board directly from the `.board/` directory. Add to `BOARD.md`:
-
-```markdown
-## Running a Review
-
-From the .board/ directory:
-  cd [BOARD_PATH]/.board
-  unset CLAUDECODE && claude --dangerously-skip-permissions -p "review [topic]"
-
-Or use /brief to set context first, then /run.
-```
+Append FrontierBoard entries to `$BOARD/.gitignore` (NOT `$PROJ/.gitignore`). Append-only — never modify existing lines. Gitignore: agent working directories (contexts, inbox, outbox, learnings), BOARD.md, REVIEW-LOG.md, DEFERRED_WORK.md, CONSOLIDATION.md, bridge/.
 
 ---
 
-## Step 9: Update .gitignore
+## Step 9: Smoke Test
 
-**Important: append only. Never modify or delete existing lines.**
-
-Check what's already in `.gitignore` first:
-
-```bash
-cat "$PROJ/.gitignore" 2>/dev/null
-```
-
-Then append only the FrontierBoard entries that aren't already present. Use `grep` to check before appending each line. Create the file if it doesn't exist.
-
-The `.gitignore` entries go in `$BOARD/.gitignore` (the FrontierBoard clone), NOT in `$PROJ/.gitignore`. The board lives in `$BOARD`, so that's where the ignore rules apply.
-
-```bash
-GITIGNORE="$BOARD/.gitignore"
-touch "$GITIGNORE"
-add_if_missing() {
-  grep -qxF "$1" "$GITIGNORE" || echo "$1" >> "$GITIGNORE"
-}
-# Add section header only if no FB entries exist yet
-if ! grep -q "FrontierBoard generated" "$GITIGNORE"; then
-  echo "" >> "$GITIGNORE"
-  echo "# FrontierBoard generated content" >> "$GITIGNORE"
-fi
-add_if_missing ".board/board/*/contexts/"
-add_if_missing ".board/board/*/inbox/"
-add_if_missing ".board/board/*/outbox/"
-add_if_missing ".board/board/*/learnings/"
-add_if_missing ".board/board/BOARD.md"
-add_if_missing ".board/board/REVIEW-LOG.md"
-add_if_missing ".board/board/DEFERRED_WORK.md"
-add_if_missing ".board/bridge/"
-```
-
-Do not add `.env` or `.env.*` — those belong to the project, not to FrontierBoard.
-
-What should be committed (defines board structure, contains no credentials):
-- `$BOARD/.board/CLAUDE.md`
-- `$BOARD/.board/board/{agent}/CLAUDE.md` for each agent
-- `$BOARD/.board/board/{agent}/.claude/settings.json` (or equivalent) for each agent
-- `$BOARD/.board/.claude/skills/` — the board's own skills
-- `$PROJ/.claude/skills/board-review/` — the integration skill that tells the host project's Claude about the board
-
-These files contain no credentials and are safe to commit. They're what defines the integration — if someone clones the repo, they get a working board setup out of the box (minus credentials, which they provide during their own setup run).
+Write a minimal brief asking each agent to confirm their identity and write to their outbox. Run each agent from their directory. Confirm every agent produced a report before declaring success. If any fail, diagnose and fix.
 
 ---
 
-## Step 10: Smoke Test
+## Step 10: Contribute Back (Optional)
 
-Run a quick test to confirm the board actually works.
-
-Write a minimal test brief — one sentence asking each agent to confirm their identity, confirm they can write to their outbox, and report back with a score of 10/10.
-
-Copy it to every agent's inbox. Run each agent from their own directory inside `$BOARD/.board/`. Check that a report appears in each agent's outbox.
-
-If any agent fails, diagnose from the error output and fix it before declaring setup complete. Common causes: auth not copied to board user, settings bubble in wrong location, CLI not recognising its flags.
-
-Don't tell the user it worked until you've confirmed every agent produced a report.
-
----
-
-## Step 10.5: Contribute Discoveries Back to FrontierBoard (Optional)
-
-During setup you may have discovered workarounds, platform quirks, or fixes that don't exist in the upstream FrontierBoard SKILL.md files — things that would help other users. Surface these now if any exist. Only raise this step if there is something genuinely worth contributing.
-
-Ask in plain language:
-
-> During setup I found a few things that would help other FrontierBoard users:
->
-> - [plain-language description of each discovery — e.g. "Codex requires `codex exec` instead of bare `codex` on Linux", "the board user needs a home directory for credentials to copy correctly", etc.]
->
-> Want me to send a pull request to the FrontierBoard maintainers with these fixes? I'll show you exactly what would change before anything is sent.
-
-**If yes:**
-
-1. Fetch the current upstream SKILL.md for the relevant skill:
-   ```bash
-   gh api repos/stefans71/FrontierBoard/contents/.claude/skills/[skill]/SKILL.md \
-     --jq '.content' | base64 -d > /tmp/upstream-skill.md
-   ```
-
-2. Show a plain-language diff — not a raw git diff, but a human-readable description of what changed and why.
-
-3. Ask: "Send this PR? I won't submit anything until you confirm."
-
-4. Only after explicit confirmation:
-   ```bash
-   gh pr create \
-     --repo stefans71/FrontierBoard \
-     --title "fix(/[skill]): [plain-language summary]" \
-     --body "$(cat <<'EOF'
-   ## What was found
-
-   [What the issue was, in plain language]
-
-   ## Why it matters
-
-   [Who it affects and what goes wrong without this fix]
-
-   ## What changed
-
-   [What was changed and why]
-
-   ## Environment
-
-   Platform: [linux/macOS/etc], user context: [root/non-root], agents: [which CLIs]
-
-   ---
-   *Submitted by [FrontierBoard](https://github.com/stefans71/FrontierBoard) — a multi-LLM board of frontier model agents.*
-   EOF
-   )"
-   ```
-
-**If no:** Drop it entirely. No PR, no further mention.
-
-**If nothing was discovered during setup:** Skip this step entirely. Don't ask.
+If you discovered workarounds or fixes during setup that aren't in upstream, ask the user if they want to send a PR to `stefans71/FrontierBoard`. Show what changed in plain language. Only submit after explicit confirmation. Skip entirely if nothing was discovered.
 
 ---
 
 ## Step 11: Done
 
-Tell the user their board is ready. Name each agent, their CLI, and their role in plain language. Show them the project path and board path (`$BOARD/.board/`).
+Name each agent, their CLI, and role. Show `$PROJ` and `$BOARD/.board/` paths. Give concrete next steps matching the integration mode:
 
-Then give concrete next steps that match the integration mode detected in Step 1. Do not give generic instructions — be specific about how this user's board gets triggered.
-
-**If `nanoclaw`:**
-
-> Your board is ready and wired into NanoClaw.
->
-> To request a review, just message NanoClaw the way you normally would:
-> - "Review the code I just pushed to src/auth.ts"
-> - "Get a second opinion on this architecture decision: [describe it]"
-> - "Run the board on everything in the payments module"
->
-> NanoClaw will pass it to the board, the agents will work independently, and NanoClaw will send you back the synthesis. You don't interact with FrontierBoard directly — it all happens in the background.
->
-> To set detailed context before a review (recommended for complex or unfamiliar topics), say "brief the board on [topic]" to NanoClaw first.
-
-**If `claude-project`:**
-
-> Your board is ready. To trigger a review from any Claude session in this project:
->
-> Type `/board-review` or describe what you want reviewed. I'll write the brief and run the board.
->
-> You can also trigger it directly from the command line — see the "Project Bridge" section in `.board/board/BOARD.md`.
-
-**If `standalone`:**
-
-> Your board is ready. To run a review:
->
-> 1. Open a terminal and: `cd [BOARD_PATH]/.board`
-> 2. Run: `claude` (or `claude --dangerously-skip-permissions` for autonomous mode)
-> 3. Describe what you want reviewed, or type `/brief` to set context first, then `/run`
->
-> The synthesis will appear in `.board/board/REVIEW-LOG.md`.
-
-Always end with:
+- **nanoclaw**: "Message NanoClaw: 'Review the auth code I just wrote.'" — it happens in the background.
+- **claude-project**: "Type `/board-review` or describe what to review."
+- **standalone**: "`cd $BOARD/.board && claude` then describe what to review or `/brief` then `/run`."
 
 > What would you like the board to look at first?

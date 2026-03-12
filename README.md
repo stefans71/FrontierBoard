@@ -188,9 +188,9 @@ Say exactly this:
 
 ### 2. Clone FrontierBoard (one command)
 
-Clone as a sibling to the project — never inside it. AI CLIs walk up the
-directory tree for settings files, so FrontierBoard must be a sibling to
-keep agent settings isolated.
+Clone as a neighboring directory in the same parent — never inside the project. AI CLIs walk up the
+directory tree for settings files, so FrontierBoard must be a neighbor, not a child,
+to keep agent settings isolated.
 
 New project (e.g. user said "myapp" at `~/`):
 ```bash
