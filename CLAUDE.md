@@ -22,6 +22,8 @@ You orchestrate a board of independent AI agents — each in their own isolated 
 
 Defined in `board/BOARD.md` after setup. Source of truth for agents, CLIs, models, invocation commands. Board doesn't exist until `/setup` runs.
 
+**Global mode:** If installed at `~/.frontierboard/`, agents are shared across projects. Per-project state lives in `board/projects/{project-name}/`. When the user says "review [path]", check if that project already has an entry — if yes, load it and run. If no, run `/setup` to create one (skipping agent creation since agents already exist).
+
 ---
 
 ## Principles

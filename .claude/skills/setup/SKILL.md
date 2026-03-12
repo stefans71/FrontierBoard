@@ -16,6 +16,15 @@ Walk the user through setting up their board. This is a conversation — ask que
 - **`$BOARD`** — the FrontierBoard clone directory. All board files go here: `.board/`, agents, reports. The board NEVER writes `.board/` inside the user's project.
 - **`$PROJ`** — the user's project. Read-only, except: you may append to `$PROJ/.gitignore` and create new files in `$PROJ/.claude/skills/`.
 
+### Global install mode
+
+If `$BOARD` is under `~/.frontierboard/`, this is a global install. In global mode:
+- Agents are built once and shared across all projects
+- Per-project state lives in `$BOARD/.board/projects/{project-name}/` (briefs, contexts, reports, BOARD.md)
+- Agent directories stay at `$BOARD/.board/board/{agent-name}/` (shared)
+- Each project gets its own orchestrator CLAUDE.md at `$BOARD/.board/projects/{project-name}/CLAUDE.md`
+- A global skill is installed at `~/.claude/skills/frontierboard/SKILL.md` so the user can type `/frontierboard` from any project session
+
 ---
 
 ## Hard-Won Knowledge
@@ -50,10 +59,13 @@ These are operational facts Claude cannot derive from general training. Never re
 
 Set `$PROJ` (project path) and `$BOARD` (FrontierBoard clone — current directory or clone path).
 
+**Global mode detection:** If `$BOARD` is under `~/.frontierboard/`, this is a global install. Check if agents already exist at `$BOARD/.board/board/`. If they do, skip Steps 2–6 (board already built) and jump to Step 7 to wire up the new project. If agents don't exist yet, this is a first-time global setup — run all steps normally, then wire the project.
+
 Silently detect integration mode by checking `$PROJ`:
 - **nanoclaw** — has `src/index.ts` + `container/build.sh` + `groups/`
 - **claude-project** — has `.claude/` but not NanoClaw
 - **standalone** — no AI tooling found
+- **global** — `$BOARD` is under `~/.frontierboard/` (detected above)
 
 Scan the project: read README, CLAUDE.md, SPEC.md, package manifests. Build a mental model of the stack for use in Step 5 (agent contexts).
 
@@ -146,6 +158,15 @@ Write `$BOARD/.board/board/BOARD.md` — operational source of truth. Include: p
 
 **standalone:** Add a "Running a Review" section to BOARD.md with the direct command.
 
+**global:** Create per-project state at `$BOARD/.board/projects/{project-name}/`:
+- `CLAUDE.md` — project-specific orchestrator identity (project name, path, stack, pointer to shared agents)
+- `BOARD.md` — project-specific operational reference (same agents, but project-specific paths for briefs/reports)
+- `briefs/`, `reports/`, `contexts/` — per-project review artifacts
+
+Also create a global skill at `~/.claude/skills/frontierboard/SKILL.md` that lets the user type `/frontierboard` from any Claude session. The skill should: detect the current working directory as the project, shell out to `cd ~/.frontierboard/FrontierBoard && claude --dangerously-skip-permissions -p "review project at [cwd]"`, and report back the synthesis. If agents don't exist yet, the skill should tell the user to run setup first.
+
+When the user returns to review another project, `/setup` detects existing agents and only creates the new project entry — no need to rebuild the board.
+
 ---
 
 ## Step 8: Update .gitignore
@@ -173,5 +194,6 @@ Name each agent, their CLI, and role. Show `$PROJ` and `$BOARD/.board/` paths. G
 - **nanoclaw**: "Message NanoClaw: 'Review the auth code I just wrote.'" — it happens in the background.
 - **claude-project**: "Type `/board-review` or describe what to review."
 - **standalone**: "`cd $BOARD/.board && claude` then describe what to review or `/brief` then `/run`."
+- **global**: "Type `/frontierboard` from any project session, or `cd ~/.frontierboard/FrontierBoard && claude` and tell it which project to review."
 
 > What would you like the board to look at first?

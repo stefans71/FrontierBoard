@@ -16,7 +16,7 @@
 
 ---
 
-[Get Started](#getting-started) · [Three Ways to Use It](#three-ways-to-use-frontierboard) · [How It Works](#how-it-works) · [The Skills](#the-skills) · [Philosophy](#philosophy)
+[Get Started](#getting-started) · [Four Ways to Use It](#four-ways-to-use-frontierboard) · [How It Works](#how-it-works) · [The Skills](#the-skills) · [Philosophy](#philosophy)
 
 </div>
 
@@ -46,12 +46,14 @@ Claude reads the install instructions on that page and walks you through everyth
   sets up the board.
 - **Just want to review a GitHub repo?** Claude clones FrontierBoard, then
   runs `/review-release` — no project folder needed.
+- **Want it everywhere?** Install globally once, then run board reviews from
+  any project without re-cloning.
 
 You never clone anything yourself. Claude handles it.
 
 ---
 
-## Three Ways to Use FrontierBoard
+## Four Ways to Use FrontierBoard
 
 ### New project — filing cabinet + board
 
@@ -83,6 +85,14 @@ Just want to review someone else's code before installing it, or find bugs to co
 - **Mode A** — Static release review: find bugs and improvements in a diff
 - **Mode B** — Safety review: is this repo safe to install?
 - **Mode C** — Full build review: clone it, install it, capture what breaks
+
+---
+
+### Global install — one board for all your projects
+
+Install FrontierBoard once at `~/.frontierboard/`. Then run board reviews from any project — no per-project cloning needed. The global board keeps a separate workspace for each project it reviews, so nothing bleeds between them.
+
+Good for developers who work across many repos and want a standing review board available everywhere.
 
 ---
 
@@ -183,6 +193,7 @@ Say exactly this:
 > 1. **New project** — I'll create the project folder and set everything up
 > 2. **Existing project** — tell me the path and I'll add a review board
 > 3. **Just review a GitHub repo** — no project needed
+> 4. **Global install** — install once, review any project from anywhere
 
 **Wait for their answer. Do not clone, fetch, or explore anything until they respond.**
 
@@ -208,6 +219,11 @@ Just reviewing (no project):
 git clone https://github.com/stefans71/FrontierBoard /tmp/fb-review/FrontierBoard
 ```
 
+Global install:
+```bash
+git clone https://github.com/stefans71/FrontierBoard ~/.frontierboard/FrontierBoard
+```
+
 ### 3. Read the local skill file and follow it
 
 Read from the clone you just created (not from GitHub):
@@ -215,6 +231,7 @@ Read from the clone you just created (not from GitHub):
 - **New project** → read `[clone-path]/CLAUDE.md`, then follow `[clone-path]/.claude/skills/project-init/SKILL.md`
 - **Existing project** → read `[clone-path]/CLAUDE.md`, then follow `[clone-path]/.claude/skills/setup/SKILL.md`
 - **Review a repo** → read `[clone-path]/CLAUDE.md`, then follow `[clone-path]/.claude/skills/review-release/SKILL.md`
+- **Global install** → read `[clone-path]/CLAUDE.md`, then follow `[clone-path]/.claude/skills/setup/SKILL.md` — setup detects global mode automatically and asks which project to review first
 
 **IMPORTANT — working directory:** The skill files assume the FrontierBoard clone directory
 is the working directory. When the skill references `$PROJ` or creates `.board/`, that means
@@ -228,6 +245,10 @@ When done, tell the user:
 
 > Your board is ready at `[board-path]`.
 > To start a session: `cd [board-path] && claude`
+
+For global installs, also install a global skill so the user can type `/frontierboard` from any project:
+
+Create `~/.claude/skills/frontierboard/SKILL.md` that shells out to the global FrontierBoard install, passing the current working directory as the project path. This lets the user trigger board reviews from any Claude session without switching directories.
 
 ---
 
