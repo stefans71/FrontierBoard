@@ -32,7 +32,9 @@ Before setup runs, `board/` is empty. The board does not exist until the user cr
 
 ## Core Principles
 
-Agents are independent. They do not see each other's work before writing their own reports. This is non-negotiable — independent review is the whole point.
+**Agents are ephemeral.** Every agent invocation is a fresh session with zero memory. They do not remember prior rounds, prior reviews, or anything outside their inbox. Every file they need — identity (CLAUDE.md), domain context, brief, prior round artifacts — must be in their inbox or referenced in their invocation prompt. If you don't give it to them, they don't have it. The more context you provide, the better the output. This applies to every round: Round 2 agents need the original artifacts plus the consolidation, Round 3 agents need everything from Round 2 plus deliberation context, etc.
+
+**Agents are independent.** They do not see each other's work before writing their own reports. This is non-negotiable — independent review is the whole point. (In Round 3+ deliberation, names become visible and agents can see each other's positions.)
 
 Each agent runs from its own directory. The CLI finds the agent's local settings file first and stops walking up the tree. Your interactive session and the project root config are never touched by board agents.
 

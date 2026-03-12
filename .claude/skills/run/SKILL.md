@@ -38,7 +38,21 @@ Read `board/DEFERRED_WORK.md` if it exists — deferred items from prior reviews
 
 ## Step 2: Round 1 — Blind Review
 
-Check that each agent's inbox contains a review brief and context file. If any inbox is empty, ask the user whether to run `/brief` first.
+### Agents are ephemeral
+
+**CRITICAL:** Every agent invocation starts a fresh session with zero memory. Agents do not remember prior rounds, prior reviews, or anything outside what you put in their inbox. Every file they need — identity, context, brief, prior round artifacts — must be in their inbox or referenced in their invocation prompt. If you don't give it to them, they don't have it. The more context you provide, the better the output.
+
+### Prepare and launch
+
+Check that each agent's inbox contains:
+- `brief.md` — the review brief (written by `/brief`)
+- `context.md` — the domain context for this agent
+
+If any inbox is empty, ask the user whether to run `/brief` first.
+
+The agent invocation prompt must tell them to read all inbox files. The standard prompt pattern is:
+
+> Read CLAUDE.md (your identity), then read every file in inbox/ — context.md, brief.md, and any other files present. These contain everything you need. Write your report to outbox/report.md.
 
 Launch all agents simultaneously using the parallelism pattern from `board/BOARD.md`. Each agent runs from their own directory so their settings bubble is active.
 
@@ -86,6 +100,16 @@ Do NOT share reports between agents. Do NOT synthesise yet. Proceed to Round 2.
 > Here's the consolidation from Round 1. Do you have any directives before the agents respond?
 > (Owner directives override agent positions — use them to settle scope debates or accept/reject specific findings.)
 
+**Prepare agent inboxes for Round 2.** Remember: agents are ephemeral. Each Round 2 invocation is a brand new session. The agent's inbox must contain:
+- `context.md` — same domain context as Round 1 (keep it)
+- `brief.md` — the **original** Round 1 brief with full artifacts (keep it — agents need the source material to evaluate findings)
+- `consolidation.md` — the consolidated findings document you just wrote
+- `round2-brief.md` — Round 2 instructions: what they're being asked to do (AGREE/DISAGREE/MODIFY per item), owner directives, and any constraints
+
+The Round 2 invocation prompt should tell agents to read everything:
+
+> Read CLAUDE.md (your identity), then read every file in inbox/ — this is Round 2 of a board review. You need all files for full context. The original artifacts are in brief.md, the consolidated findings are in consolidation.md, and your Round 2 instructions are in round2-brief.md. Write your response to outbox/round2.md.
+
 Run all agents again. Each agent responds per item: **AGREE**, **DISAGREE** (with rationale), or **MODIFY** (with alternative).
 
 Collect Round 2 reports.
@@ -103,7 +127,12 @@ Collect Round 2 reports.
 1. Extract only the disputed items
 2. Show each agent's Round 2 position **with names visible** — deliberation is not blind
 3. Write the Round 3 brief with disputed items and each agent's position
-4. Run agents — each states **AGREE** or **BLOCK** per disputed item
+4. Prepare agent inboxes — agents are ephemeral, they need full context again:
+   - `context.md` — same domain context (keep from prior rounds)
+   - `brief.md` — the **original** Round 1 brief with full artifacts (keep it — agents still need source material)
+   - `consolidation.md` — the Round 2 consolidated findings (keep it)
+   - `round3-brief.md` — Round 3 instructions: disputed items, each agent's Round 2 position (names visible), owner directives, and the task (AGREE or BLOCK per item)
+5. Run agents with a prompt that tells them to read everything in inbox/
 
 This is the debate round. Agents can see each other's reasoning and must converge or explicitly block.
 
@@ -118,6 +147,14 @@ Write the final brief containing:
 - All DEFER items with trigger conditions
 - All INFO and REJECT items
 - Resolution of any Round 3 disputes
+
+**Prepare agent inboxes.** Agents are ephemeral — this is a fresh session again. Each inbox must contain:
+- `context.md` — same domain context
+- `brief.md` — the **original** Round 1 brief with full artifacts
+- `consolidation.md` — the consolidated findings
+- `round4-brief.md` — the final brief above, plus clear instructions: "State SIGN OFF or BLOCK (with specific concern) for the complete findings list."
+
+Include Round 3 deliberation results in the round4-brief so agents can see how disputes were resolved.
 
 Run all agents. Each states: **SIGN OFF** or **BLOCK** (with specific concern).
 
