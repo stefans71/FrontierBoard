@@ -34,6 +34,12 @@ These are operational facts Claude cannot derive from general training. Never re
 
 6. **Billing warnings are mandatory** — Always warn users about pay-per-use billing (OpenAI API, Anthropic API) before accepting keys. Recommend spend limits. Claude Pro/Max subscriptions have no extra charges — mention this.
 
+7. **Agent model must be opus or higher** — Settings bubbles must set model to `claude-opus-4-6` (Claude Code) or `o4-mini` (Codex). Never use Sonnet — it lacks the reasoning depth for independent review.
+
+8. **Codex approval_policy is `never`** — The Codex config.toml must use `approval_policy = "never"` (not "full-auto"). And Codex invocations in BOARD.md must include `--dangerously-bypass-approvals-and-sandbox`. Without this flag, Codex won't run as a subprocess.
+
+9. **Agent invocation must read CLAUDE.md** — All invocation commands must tell the agent to read its CLAUDE.md first, then read inbox files. Example: `"read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md"`. Agents without CLAUDE.md instructions lose their identity.
+
 ---
 
 ## Step 1: Welcome and Detect
