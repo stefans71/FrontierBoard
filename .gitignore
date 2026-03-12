@@ -1,10 +1,13 @@
-# Generated at setup — lives locally, not committed
-board/*/contexts/
-board/*/inbox/
-board/*/outbox/
-board/*/learnings/
-board/BOARD.md
-board/REVIEW-LOG.md
+# Generated board content — lives locally, not committed
+.board/board/*/contexts/
+.board/board/*/inbox/
+.board/board/*/outbox/
+.board/board/*/learnings/
+.board/board/BOARD.md
+.board/board/REVIEW-LOG.md
+.board/board/DEFERRED_WORK.md
+.board/board/CONSOLIDATION.md
+.board/bridge/
 
 # Keep directory structure
 !board/.gitkeep

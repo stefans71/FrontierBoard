@@ -145,12 +145,20 @@ If they are root, explain the situation plainly before asking anything:
 Create the user with a home directory and bash shell. Run these commands yourself — don't ask the user to run them:
 
 ```bash
-useradd -m -s /bin/bash llmuser   # or whatever name they chose
-# Add sudoers entry so current user can run commands as the board user without password
-echo "$(whoami) ALL=(llmuser) NOPASSWD:ALL" >> /etc/sudoers.d/frontierboard
+id llmuser 2>/dev/null || useradd -m -s /bin/bash llmuser   # or whatever name they chose
+# Add sudoers entry (idempotent — check before appending)
+SUDOERS_FILE="/etc/sudoers.d/frontierboard"
+SUDOERS_LINE="$(whoami) ALL=(llmuser) NOPASSWD:ALL"
+if [ ! -f "$SUDOERS_FILE" ] || ! grep -qF "$SUDOERS_LINE" "$SUDOERS_FILE"; then
+  echo "$SUDOERS_LINE" > "$SUDOERS_FILE"
+  chmod 0440 "$SUDOERS_FILE"
+  visudo -c -f "$SUDOERS_FILE" || { echo "ERROR: sudoers syntax check failed"; rm -f "$SUDOERS_FILE"; exit 1; }
+fi
 ```
 
 Note the board user name — all agent invocation commands will use it.
+
+**Important — root users always need a board user:** Even if the user chose interactive mode, agents run as subprocesses that need `--dangerously-skip-permissions`. This flag is blocked when running as root. So if the current user is root, ALWAYS create the board user regardless of interactive/autonomous choice. The only difference is that in interactive mode, the board user doesn't need `--dangerously-skip-permissions` — but the subprocess invocation still requires a non-root user.
 
 ---
 
@@ -432,6 +440,27 @@ The user just describes what they want reviewed. The orchestrator handles contex
 
 ---
 
+## Step 7b: Fix Ownership for Board User
+
+If a board user was created in Step 3 (root + autonomous OR root + interactive), the board files are currently owned by root. The board user needs to own them:
+
+```bash
+if [ -n "$BOARD_USER" ]; then
+  chown -R "$BOARD_USER:$BOARD_USER" "$BOARD/.board/"
+  # Board user also needs to traverse the path to the board
+  # Check if the parent directories are accessible
+  BOARD_PARENT="$(dirname "$BOARD")"
+  if ! sudo -u "$BOARD_USER" test -x "$BOARD_PARENT" 2>/dev/null; then
+    chmod o+x "$BOARD_PARENT"
+    echo "Note: Added execute permission on $BOARD_PARENT so the board user can access the board directory."
+  fi
+fi
+```
+
+This must happen after all agent directories are created and before the smoke test.
+
+---
+
 ## Step 8: Write Board Identity Files and Wire Integration
 
 **`$BOARD/.board/CLAUDE.md`**
@@ -490,6 +519,12 @@ This is the operational source of truth. Write it with:
 - The parallelism pattern — how to run all agents in parallel and wait for completion
 - The bridge section (see below, varies by integration mode)
 
+**IMPORTANT — all invocation commands must include `unset CLAUDECODE`** before running any Claude Code agent. The `CLAUDECODE` environment variable blocks nested Claude sessions. Without unsetting it, agents invoked from within a Claude Code session will fail with "Cannot be launched inside another Claude Code session." Wrap commands in `bash -c '...'` to scope the unset. Example:
+
+```bash
+sudo -u [board-user] bash -c 'unset CLAUDECODE && cd [agent-dir] && claude --dangerously-skip-permissions -p "..."'
+```
+
 ---
 
 **Wire the integration bridge — based on the INTEGRATION_MODE detected in Step 1:**
@@ -523,7 +558,8 @@ unset CLAUDECODE
 # If running as root and a board user exists, switch to it
 BOARD_USER="${FRONTIERBOARD_USER:-llmuser}"
 if [ "$(id -u)" = "0" ] && id "$BOARD_USER" &>/dev/null; then
-  exec sudo -u "$BOARD_USER" env HOME="$(eval echo ~$BOARD_USER)" \
+  BOARD_HOME="$(getent passwd "$BOARD_USER" | cut -d: -f6)"
+  exec sudo -u "$BOARD_USER" env HOME="$BOARD_HOME" \
     claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
 else
   exec claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
@@ -559,8 +595,8 @@ description: Request a board review via FrontierBoard. Use when asked to "review
 When the user asks for a board review, write their request as a brief and
 invoke the FrontierBoard bridge.
 
-The board lives at: [PROJ_PATH]/.board/
-The bridge script is at: [PROJ_PATH]/.board/bridge/run-review.sh
+The board lives at: [BOARD_PATH]/.board/
+The bridge script is at: [BOARD_PATH]/.board/bridge/run-review.sh
 
 ## Timing warning
 
@@ -575,7 +611,7 @@ receives progress updates and the connection stays alive.
 ## Steps
 
 1. Write the review request as a markdown brief at
-   `[PROJ_PATH]/.board/board/inbox/request.md`. Include:
+   `[BOARD_PATH]/.board/board/inbox/request.md`. Include:
    - What specifically is being reviewed (file paths, topic, decision)
    - What questions the board should answer
    - The domain: software / business / general
@@ -588,13 +624,13 @@ receives progress updates and the connection stays alive.
 
 3. Start the bridge in the background:
    ```bash
-   nohup [PROJ_PATH]/.board/bridge/run-review.sh > /tmp/board-bridge.log 2>&1 &
+   nohup [BOARD_PATH]/.board/bridge/run-review.sh > /tmp/board-bridge.log 2>&1 &
    echo $! > /tmp/board-bridge.pid
    ```
 
 4. Poll every 5 minutes until the review log appears:
    ```bash
-   while [ ! -f "[PROJ_PATH]/.board/board/REVIEW-LOG.md" ] && \
+   while [ ! -f "[BOARD_PATH]/.board/board/REVIEW-LOG.md" ] && \
          kill -0 $(cat /tmp/board-bridge.pid 2>/dev/null) 2>/dev/null; do
      sleep 300
    done
@@ -605,7 +641,7 @@ receives progress updates and the connection stays alive.
 
 5. When the log appears, read it:
    ```bash
-   cat [PROJ_PATH]/.board/board/REVIEW-LOG.md
+   cat [BOARD_PATH]/.board/board/REVIEW-LOG.md
    ```
 
 6. Summarise the key findings for the user. Highlight where agents agreed
@@ -620,7 +656,7 @@ The user does not need to know the internal mechanics — just keep them
 informed of progress and timing.
 ```
 
-Replace `[PROJ_PATH]` with the actual absolute path and `{skill-name}` with the chosen name.
+Replace `[BOARD_PATH]` with the actual absolute path to the FrontierBoard clone (i.e. `$BOARD`), `[PROJ_PATH]` with the project path, and `{skill-name}` with the chosen name.
 
 4. Tell the user what the flow looks like, including timing:
 
@@ -643,11 +679,11 @@ Add to `BOARD.md`:
 FrontierBoard is integrated with NanoClaw. The user never invokes the board
 directly — NanoClaw Claude handles it via the board-review skill.
 
-Bridge script: [PROJ_PATH]/.board/bridge/run-review.sh
+Bridge script: [BOARD_PATH]/.board/bridge/run-review.sh
 NanoClaw skill: [PROJ_PATH]/.claude/skills/board-review/SKILL.md
 
 To trigger manually (for testing):
-  [PROJ_PATH]/.board/bridge/run-review.sh "Review [topic]"
+  [BOARD_PATH]/.board/bridge/run-review.sh "Review [topic]"
 ```
 
 **If `claude-project`:**
@@ -696,7 +732,7 @@ description: Request a FrontierBoard review. Use when the user asks to "review",
 
 # Board Review
 
-FrontierBoard is installed at [PROJ_PATH]/.board/ and provides independent
+FrontierBoard is installed at [BOARD_PATH]/.board/ and provides independent
 multi-agent review. Use it when the user asks for a review, or when you judge
 that independent perspectives would meaningfully improve a decision or output.
 
@@ -710,7 +746,7 @@ Use the polling pattern below — do not block on the bridge command.
 
 ## How to trigger a review
 
-1. Write a brief to `[PROJ_PATH]/.board/board/inbox/request.md`. Include:
+1. Write a brief to `[BOARD_PATH]/.board/board/inbox/request.md`. Include:
    - What specifically is being reviewed (file paths, topic, decision)
    - What questions the board should answer
    - The domain: software / business / general
@@ -719,15 +755,15 @@ Use the polling pattern below — do not block on the bridge command.
 
 3. Start the bridge in the background:
    ```bash
-   nohup cd [PROJ_PATH]/.board && claude --dangerously-skip-permissions \
-     -p "read CLAUDE.md then /run" > /tmp/board-bridge.log 2>&1 &
+   nohup bash -c 'cd [BOARD_PATH]/.board && unset CLAUDECODE && claude --dangerously-skip-permissions \
+     -p "read CLAUDE.md then /run"' > /tmp/board-bridge.log 2>&1 &
    echo $! > /tmp/board-bridge.pid
    ```
 
 4. Poll every 5 minutes until the review log appears, writing a brief
    status update to the user each cycle so the session stays alive:
    ```bash
-   while [ ! -f "[PROJ_PATH]/.board/board/REVIEW-LOG.md" ] && \
+   while [ ! -f "[BOARD_PATH]/.board/board/REVIEW-LOG.md" ] && \
          kill -0 $(cat /tmp/board-bridge.pid 2>/dev/null) 2>/dev/null; do
      sleep 300
    done
@@ -735,7 +771,7 @@ Use the polling pattern below — do not block on the bridge command.
 
 5. Read and summarise the synthesis:
    ```
-   [PROJ_PATH]/.board/board/REVIEW-LOG.md
+   [BOARD_PATH]/.board/board/REVIEW-LOG.md
    ```
    Highlight where agents agreed and where they diverged.
 
@@ -748,7 +784,7 @@ Use the polling pattern below — do not block on the bridge command.
 - If the board was already run on this topic recently (check REVIEW-LOG.md)
 ```
 
-Replace `[PROJ_PATH]` with the actual absolute project path and `{skill-name}` with the chosen name.
+Replace `[BOARD_PATH]` with the actual absolute path to the FrontierBoard clone (i.e. `$BOARD`), `[PROJ_PATH]` with the project path, and `{skill-name}` with the chosen name.
 
 **2. Add to `BOARD.md`:**
 
@@ -762,8 +798,8 @@ The project's Claude will use this skill automatically when asked for a review.
 Trigger phrase: "/{skill-name}" or natural language ("review xyz", "get a second opinion on xyz")
 
 To trigger manually (for testing or scripting):
-  echo "Review: [topic]" > [PROJ_PATH]/.board/board/inbox/request.md
-  cd [PROJ_PATH]/.board && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
+  echo "Review: [topic]" > [BOARD_PATH]/.board/board/inbox/request.md
+  cd [BOARD_PATH]/.board && unset CLAUDECODE && claude --dangerously-skip-permissions -p "read CLAUDE.md then /run"
 ```
 
 **3. Tell the user explicitly what was done and how to use it** — always do this, regardless of which path (A/B/C) was taken:
@@ -793,8 +829,8 @@ The user invokes the board directly from the `.board/` directory. Add to `BOARD.
 ## Running a Review
 
 From the .board/ directory:
-  cd [PROJ_PATH]/.board
-  claude --dangerously-skip-permissions -p "review [topic]"
+  cd [BOARD_PATH]/.board
+  unset CLAUDECODE && claude --dangerously-skip-permissions -p "review [topic]"
 
 Or use /brief to set context first, then /run.
 ```
@@ -813,19 +849,26 @@ cat "$PROJ/.gitignore" 2>/dev/null
 
 Then append only the FrontierBoard entries that aren't already present. Use `grep` to check before appending each line. Create the file if it doesn't exist.
 
+The `.gitignore` entries go in `$BOARD/.gitignore` (the FrontierBoard clone), NOT in `$PROJ/.gitignore`. The board lives in `$BOARD`, so that's where the ignore rules apply.
+
 ```bash
-GITIGNORE="$PROJ/.gitignore"
+GITIGNORE="$BOARD/.gitignore"
 touch "$GITIGNORE"
 add_if_missing() {
   grep -qxF "$1" "$GITIGNORE" || echo "$1" >> "$GITIGNORE"
 }
 # Add section header only if no FB entries exist yet
-grep -q "FrontierBoard" "$GITIGNORE" || echo "" >> "$GITIGNORE" && echo "# FrontierBoard" >> "$GITIGNORE"
+if ! grep -q "FrontierBoard generated" "$GITIGNORE"; then
+  echo "" >> "$GITIGNORE"
+  echo "# FrontierBoard generated content" >> "$GITIGNORE"
+fi
 add_if_missing ".board/board/*/contexts/"
 add_if_missing ".board/board/*/inbox/"
 add_if_missing ".board/board/*/outbox/"
+add_if_missing ".board/board/*/learnings/"
 add_if_missing ".board/board/BOARD.md"
 add_if_missing ".board/board/REVIEW-LOG.md"
+add_if_missing ".board/board/DEFERRED_WORK.md"
 add_if_missing ".board/bridge/"
 ```
 
@@ -945,7 +988,7 @@ Then give concrete next steps that match the integration mode detected in Step 1
 
 > Your board is ready. To run a review:
 >
-> 1. Open a terminal and: `cd [PROJ_PATH]/.board`
+> 1. Open a terminal and: `cd [BOARD_PATH]/.board`
 > 2. Run: `claude` (or `claude --dangerously-skip-permissions` for autonomous mode)
 > 3. Describe what you want reviewed, or type `/brief` to set context first, then `/run`
 >
