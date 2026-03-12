@@ -21,7 +21,7 @@ If this was triggered by a plain language request (e.g. "have the board look at 
 
 ## Step 2: Detect the Domain
 
-Based on what the user described, identify which domain this falls into — software, business, HR, finance, or something else.
+Based on what the user described, identify which domain this falls into — software, business, HR, finance, legal, or something else.
 
 Check `board/{agent}/contexts/` for each agent to see what context files already exist.
 
@@ -47,26 +47,40 @@ A software context for a skeptic asks different questions than a software contex
 
 ---
 
-## Step 4: Write the Review Brief
+## Step 4: Load Deferred Work
 
-Write a review brief for this specific question. This goes in each agent's inbox.
+Check if `board/DEFERRED_WORK.md` exists. If it does, read it — these are items deferred from prior reviews that are still ACTIVE.
 
-The brief should cover:
-- What is being reviewed — the actual content, file, document, or question
-- The specific question the user wants answered
-- Any context the agents need to know (background, constraints, what's already been decided)
-- What a useful finding looks like for this question
-- Any specific concerns the user has flagged
+Deferred items must be included in the brief so agents know:
+- What's already been flagged and intentionally deferred
+- What trigger conditions exist
+- Whether any trigger conditions may have been met by the artifact being reviewed
 
-If the user provided a file or document, include its contents or path in the brief.
-
-The brief is the same for all agents — independent review of the same question is the point. Each agent's identity and context shapes how they approach it differently.
+This prevents agents from re-raising known deferred items as new findings, and helps them spot when a deferred item's trigger has fired.
 
 ---
 
-## Step 5: Populate Inboxes
+## Step 5: Write the Review Brief
 
-Write the review brief to each agent's inbox. Name it `REVIEW-{date}-{short-description}.md` — something recognisable.
+Write a review brief for Round 1 (Blind Review). This is the same for all agents — independent review of the same question is the point.
+
+The brief should cover:
+
+1. **Context** — What is this artifact? Why does it exist? Who is the audience?
+2. **The artifact itself** — Full text, inline. Agents are ephemeral — they cannot access external files. If the artifact is code, include the full source. If it's a document, include the full text. If it exceeds ~50KB, provide an executive summary + full text + section index.
+3. **Evaluation criteria** — What specifically should the agent evaluate?
+4. **Deferred items** — Include the contents of `board/DEFERRED_WORK.md` (if any) under a clearly marked section: "Previously deferred items — do not re-raise these unless a trigger condition has been met."
+5. **Output format** — Finding ID, severity (FIX NOW / DEFER / INFO), section reference, issue, impact, fix. Use the format from `docs/REVIEW-SOP.md`.
+6. **Any specific concerns** the user has flagged
+
+---
+
+## Step 6: Populate Inboxes
+
+For each agent:
+1. Copy the domain context file to `inbox/context.md`
+2. Copy the brief to `inbox/brief.md`
+3. Clear any previous `outbox/report.md`
 
 Tell the user:
 
@@ -76,8 +90,20 @@ If they want to run now, follow the `/run` skill. If they want to review first, 
 
 ---
 
-## Step 6: Save the Context (If New)
+## Step 7: Save the Context (If New)
 
 If a new context was written, confirm it's saved in each agent's contexts folder. Tell the user:
 
 > I've saved a [domain] context for your board. Next time you ask for a [domain] review, I'll use it automatically — or you can ask me to tailor it further.
+
+---
+
+## Round 2+ Briefs
+
+When the `/run` skill needs briefs for subsequent rounds, it handles the brief writing itself (consolidation brief, deliberation brief, confirmation brief). However, if the user asks to re-brief between rounds — for example, to add a directive or change the question — this skill runs again.
+
+For Round 2+ briefs, always include:
+- Previous round's findings (consolidated items with agent positions)
+- Owner directives clearly marked
+- Deferred items from `board/DEFERRED_WORK.md`
+- The original artifact (agents are ephemeral — they need it every round)

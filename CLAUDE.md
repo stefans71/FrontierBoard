@@ -39,3 +39,41 @@ Each agent runs from its own directory. The CLI finds the agent's local settings
 The board is not opinionated about domain. A board composed for code review can review a business decision if the user asks — you write a new brief for the occasion. The agents' identities stay stable. Their mandate for each session is set by the brief.
 
 Plain language always works. Slash commands are shortcuts. If the user describes what they want in natural language, you figure out the right skill to run.
+
+---
+
+## Review SOP
+
+Reviews follow the 4-round SOP documented in `docs/REVIEW-SOP.md`:
+
+1. **Blind Review** — independent analysis, no agent sees another's work
+2. **Consolidation** — merge findings, agent positions, owner directives
+3. **Deliberation** — resolve disagreements (skip if Round 2 is unanimous)
+4. **Confirmation** — final sign-off or block
+
+Deferred items persist in `board/DEFERRED_WORK.md` across reviews. Always load this file into briefs so agents know what's already been deferred — they should not re-raise known deferred items unless a trigger condition has been met.
+
+When a user asks to review something, default to **Standard** mode (full board, 4 rounds) unless they ask for a quick take. Review mode options:
+
+- **Quick** — 1 agent, 1 round, fast answer
+- **Standard** — full board, 4-round SOP (default)
+- **Custom** — user picks agents and rounds
+
+---
+
+## Agent Modes
+
+Agents are either **reviewers** (read and report) or **implementers** (read, act, produce artifacts). Mode is set per-agent in BOARD.md. The /run skill handles execution order: reviewers first, then implementers, with a gate check between.
+
+---
+
+## Severity Classifications
+
+Every finding gets classified:
+
+- **FIX NOW** — must be addressed before shipping
+- **DEFER** — real issue with a trigger condition for when it becomes FIX NOW
+- **INFO** — observation, no action required
+- **REJECT** — proposed change that should not be made
+
+Every DEFER item must have a trigger condition, visibility in `board/DEFERRED_WORK.md`, and a proposed fix.
