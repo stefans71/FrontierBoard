@@ -15,7 +15,7 @@ Three modes — detect from what the user says:
 
 **Mode C — Full build review:** Clone, install, run tests, capture failures. The patch log is the primary artifact. Requires Docker for container builds.
 
-**Entry point:** FrontierBoard is always the starting point. Users who haven't installed the target clone FB first, run `/setup`, then `/review-release`.
+**Entry point:** Board agents must exist before running this skill. If no agents exist yet, run `/setup` first — it creates the agents and board structure. Then come back here for the actual review.
 
 ---
 
