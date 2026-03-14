@@ -106,12 +106,14 @@ esac
 sudo -u llmuser bash -c 'unset CLAUDECODE && cd $DIR && claude --dangerously-skip-permissions -p "..."'
 ```
 
-**After (container):**
+**After (container with credential proxy):**
 ```bash
 docker run -i --rm --name fb-pragmatist-$(date +%s) \
   -e FB_CLI=claude -e FB_YOLO=true \
   -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write report to outbox/report.md" \
-  -e ANTHROPIC_API_KEY=$KEY \
+  -e ANTHROPIC_BASE_URL=http://host.docker.internal:$PROXY_PORT \
+  -e ANTHROPIC_API_KEY=placeholder \
+  -e HTTP_X_FB_UPSTREAM=anthropic \
   --add-host=host.docker.internal:host-gateway \
   -v $PROJ:/workspace/project:ro \
   -v /dev/null:/workspace/project/.env:ro \
@@ -122,7 +124,7 @@ docker run -i --rm --name fb-pragmatist-$(date +%s) \
   frontierboard-agent:latest
 ```
 
-`unset CLAUDECODE` no longer needed — container is a fresh process, not nested.
+`unset CLAUDECODE` no longer needed — container is a fresh process. Real API keys never enter the container — proxy injects them transparently.
 
 ---
 
@@ -172,7 +174,7 @@ Container mode skips board user creation entirely.
 - MVP: API key passed directly via `-e` (no proxy yet)
 
 ### Phase 2: Credential Proxy ✓ DONE
-- `container/fb-credential-proxy.js` — standalone Node.js proxy, zero dependencies
+- `container/fb-credential-proxy.cjs` — standalone Node.js proxy, zero dependencies
 - Multi-upstream: Anthropic (x-api-key + OAuth), OpenAI (Bearer), DashScope (Bearer)
 - Auto-detects upstream from request headers (x-api-key → Anthropic, OpenAI user-agent → OpenAI)
 - PID file management with `--stop` flag for clean shutdown
@@ -213,7 +215,7 @@ NanoClaw (`github.com/qwibitai/nanoclaw`) has a production-grade implementation 
 | Component | NanoClaw File | FB Equivalent |
 |---|---|---|
 | Container spawner | `src/container-runner.ts` | `run/SKILL.md` invocation commands |
-| Credential proxy | `src/credential-proxy.ts` | `container/fb-credential-proxy.js` |
+| Credential proxy | `src/credential-proxy.ts` | `container/fb-credential-proxy.cjs` |
 | Mount security | `src/mount-security.ts` | Hardcoded per-agent mounts (simpler) |
 | Container image | `container/Dockerfile` | `container/Dockerfile` |
 | Group isolation | `src/group-folder.ts` | Agent directory structure |

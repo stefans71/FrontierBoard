@@ -28,8 +28,9 @@ Read `.board/board/BOARD.md` for agent list, invocation commands, isolation mode
 
 If `isolation: container`:
 1. Verify the `frontierboard-agent` Docker image exists (`docker images frontierboard-agent`). If missing, build it: `$BOARD/container/build.sh`.
-2. Start the credential proxy if not already running: `node $BOARD/container/fb-credential-proxy.cjs &`. Check if it's already running by testing the PID file at `$BOARD/container/.fb-proxy.pid`, or if NanoClaw's proxy (port 3001) responds. Record the proxy port for use in invocation commands.
-3. After all agents complete (Step 6), stop the proxy: `node $BOARD/container/fb-credential-proxy.cjs --stop`.
+2. Start the credential proxy: check PID file at `$BOARD/container/.fb-proxy.pid` — if it exists and `kill -0 $(cat PID_FILE)` succeeds, proxy is already running. Otherwise start it: `node $BOARD/container/fb-credential-proxy.cjs &`. Wait 1 second, verify PID file exists and process is alive. If startup fails, surface the error before launching agents.
+3. The proxy **must stay running across all review rounds** (Steps 2-5). Do NOT stop it between rounds.
+4. Stop the proxy in Step 6 (Post-Review) after all reports are collected: `node $BOARD/container/fb-credential-proxy.cjs --stop`. If the review is cancelled or fails partway, still stop the proxy.
 
 ---
 
