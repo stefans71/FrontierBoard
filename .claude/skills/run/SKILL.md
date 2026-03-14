@@ -24,7 +24,7 @@ If the user hasn't specified depth:
 
 ## Step 1: Read the Board
 
-Read `board/BOARD.md` for agent list, invocation commands, board user, parallelism pattern. Read `board/DEFERRED_WORK.md` if it exists — include in every brief.
+Read `.board/board/BOARD.md` for agent list, invocation commands, board user, parallelism pattern. Read `.board/board/DEFERRED_WORK.md` if it exists — include in every brief.
 
 ---
 
@@ -36,7 +36,7 @@ Verify each agent's inbox has `brief.md` and `context.md`. If empty, ask about r
 
 Launch all agents simultaneously per BOARD.md parallelism pattern. Each runs from their own directory. Tell the user which agents are running and rough timing.
 
-Wait for all to complete. Check each `outbox/report.md`. Diagnose failures (auth, permissions, CLI not found, root error). Do NOT share reports between agents.
+Wait for all to complete. Check exit codes — a non-zero exit or timeout means the agent failed. Verify each `outbox/report.md` exists and was modified after the run started (prevents stale reports). Diagnose failures (auth, permissions, CLI not found, root error, timeout). Report failed agents explicitly before proceeding. Do NOT share reports between agents.
 
 ---
 
@@ -92,9 +92,9 @@ If all sign off → complete. If any block:
 
 ## Step 6: Post-Review
 
-Append to `board/REVIEW-LOG.md`: what was reviewed, date, mode, rounds, agents, FIX NOW table, DEFER table with triggers, INFO items, key decisions.
+Append to `.board/board/REVIEW-LOG.md`: what was reviewed, date, mode, rounds, agents, FIX NOW table, DEFER table with triggers, INFO items, key decisions.
 
-Create/update `board/DEFERRED_WORK.md` with any new DEFER items. Update resolved items.
+Create/update `.board/board/DEFERRED_WORK.md` with any new DEFER items. Update resolved items.
 
 Present summary: FIX NOW list, DEFER list, sign-off status.
 

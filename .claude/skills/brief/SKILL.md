@@ -21,7 +21,7 @@ If triggered by plain language, confirm what you understood before proceeding.
 
 ## Step 2: Detect the Domain
 
-Identify domain (software, business, HR, finance, legal, etc.) from the user's description. Check `board/{agent}/contexts/` for existing context files.
+Identify domain (software, business, HR, finance, legal, etc.) from the user's description. Check `.board/board/{agent}/contexts/` for existing context files.
 
 If matching context exists: offer to use it or tailor further. If no match: tell the user you'll write one now and save it for future reviews.
 
@@ -29,13 +29,13 @@ If matching context exists: offer to use it or tailor further. If no match: tell
 
 ## Step 3: Write or Activate Context
 
-Existing context → read it. New context → write `board/{agent}/contexts/{domain}.md` for each agent. A context file gives the agent a domain-specific lens — what to look for, what questions to ask. It does not change their identity. Write each one for that specific agent's angle applied to this domain.
+Existing context → read it. New context → write `.board/board/{agent}/contexts/{domain}.md` for each agent. A context file gives the agent a domain-specific lens — what to look for, what questions to ask. It does not change their identity. Write each one for that specific agent's angle applied to this domain.
 
 ---
 
 ## Step 4: Load Deferred Work
 
-If `board/DEFERRED_WORK.md` exists, read it. Include in the brief so agents know what's already been flagged, what triggers exist, and whether any triggers may have fired.
+If `.board/board/DEFERRED_WORK.md` exists, read it. Include in the brief so agents know what's already been flagged, what triggers exist, and whether any triggers may have fired.
 
 ---
 

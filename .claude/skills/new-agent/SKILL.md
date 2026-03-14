@@ -11,7 +11,7 @@ Add a new agent to the board. Same conversational approach as setup — ask what
 
 ## Step 1: Read the Board
 
-Read `board/BOARD.md` to understand the current board composition — who's on it, what CLIs are in use, whether a board user exists.
+Read `.board/board/BOARD.md` to understand the current board composition — who's on it, what CLIs are in use, whether a board user exists.
 
 ---
 
@@ -33,7 +33,7 @@ Check whether the CLI for this new agent is already installed and authenticated.
 
 If it's already in use by another agent on this board, it's ready — no setup needed. Tell the user and move on.
 
-If it's new to this board, offer to walk through installation and authentication. Follow the same approach as `/setup` Step 6 for that specific CLI.
+If it's new to this board, offer to walk through installation and authentication. Follow the same approach as `/setup` Step 5 (CLI Setup) for that specific CLI.
 
 If a board user exists, make sure the new CLI's credentials are also accessible to that user.
 
@@ -41,7 +41,7 @@ If a board user exists, make sure the new CLI's credentials are also accessible 
 
 ## Step 4: Build the Agent
 
-Create the agent directory, settings bubble, CLAUDE.md, inbox, outbox, learnings, and contexts folder — following the same approach as `/setup` Step 7.
+Create the agent directory, settings bubble, CLAUDE.md, inbox, outbox, learnings, and contexts folder — following the same approach as `/setup` Step 6 (Build the Agents).
 
 Write the CLAUDE.md from the user's description. Make it specific. This agent should sound distinct from the others already on the board.
 
@@ -51,7 +51,7 @@ For contexts: check what contexts already exist for the other agents. Write matc
 
 ## Step 5: Update BOARD.md
 
-Add the new agent to `board/BOARD.md` — their directory, CLI, model, role description, and invocation command.
+Add the new agent to `.board/board/BOARD.md` — their directory, CLI, model, role description, and invocation command.
 
 Update the parallelism pattern to include the new agent.
 

@@ -75,7 +75,7 @@ Scan the project: read README, CLAUDE.md, SPEC.md, package manifests. Build a me
 
 > Do you want agents in **YOLO mode** or **supervised mode**?
 >
-> **YOLO mode** — Full autonomy. Agents run unattended with read/write/bash. No permission prompts. They can use browser tools, run commands, explore freely. Recommended for trusted environments (your own VPS, local dev).
+> **YOLO mode** — Full autonomy. Agents run unattended with read/write/bash. No permission prompts. They can use browser tools, run commands, explore freely. **Risk:** YOLO agents can read/write any file accessible to the board user, execute arbitrary commands, and access the network. Blind review between agents is enforced by instructions only — not by technical isolation. Use on machines where you trust the agents with everything the board user can access.
 >
 > **Supervised mode** — Agents pause before actions. Good for first-time setup or shared/untrusted environments.
 
@@ -132,7 +132,7 @@ If a board user was created, copy credential files from current user's home to b
 For each agent, create their directory at `$BOARD/.board/board/{agent-name}/` with:
 - `inbox/`, `outbox/`, `learnings/`, `contexts/`
 - Settings bubble for their CLI (Claude: `.claude/settings.json` allowing all tools + model. Codex: `.codex/config.toml` with approval=never + project doc pointing to CLAUDE.md. Qwen: `.qwen/settings.json` with yolo mode.)
-- `CLAUDE.md` — agent identity. Domain-agnostic thinking style, NOT domain knowledge. Cover: who they are, how they think, what they're reviewing (one sentence naming the project), output format (structured findings with severity/location/finding/scenario/recommendation), rules (blind review, write report first, load context from inbox).
+- `CLAUDE.md` — agent identity. Domain-agnostic thinking style, NOT domain knowledge. Cover: who they are, how they think, what they're reviewing (one sentence naming the project), output format (structured findings using the SOP severity levels: FIX NOW / DEFER / INFO / REJECT, with location/finding/scenario/recommendation), rules (blind review, write report first, load context from inbox).
 
 **Context files** go in `contexts/{domain}.md`. This is where ALL domain-specific knowledge lives — architecture, tech stack, key files, threat models. Tailor to each agent's thinking style. Write one context per domain chosen in Step 3, or three (software, business, general) if they chose "mix."
 
@@ -152,13 +152,25 @@ Write `$BOARD/.board/CLAUDE.md` — the orchestrator identity. Include: project 
 
 ### BOARD.md
 
-Write `$BOARD/.board/board/BOARD.md` — operational source of truth. Include: project path, autonomous mode, board user, per-agent invocation commands, parallelism pattern (run all agents in parallel, wait for all).
+Write `$BOARD/.board/board/BOARD.md` — operational source of truth. Include: project path, autonomous mode (`yolo_mode: true/false`), board user, per-agent invocation commands with `timeout 900` wrapper, parallelism pattern (run all agents in parallel, wait for all, check exit codes, verify report freshness).
 
 **All Claude Code invocation commands MUST include `unset CLAUDECODE`** (see Hard-Won Knowledge #1). **All Codex invocations MUST use `codex exec`** (see Hard-Won Knowledge #2).
 
+**Invocation template (Claude Code):**
+```bash
+timeout 900 sudo -u $BOARD_USER bash -c 'unset CLAUDECODE && cd $AGENT_DIR && claude --dangerously-skip-permissions -p "read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md"'
+```
+
+**Invocation template (Codex):**
+```bash
+timeout 900 sudo -u $BOARD_USER bash -c 'cd $AGENT_DIR && codex exec --dangerously-bypass-approvals-and-sandbox "read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md"'
+```
+
+If no board user, omit `sudo -u`. If supervised mode, omit `--dangerously-skip-permissions` / `--dangerously-bypass-approvals-and-sandbox`.
+
 ### Integration bridge
 
-**nanoclaw:** Create `$BOARD/.board/bridge/run-review.sh` (executable) that accepts a brief, writes to board inbox, switches to board user if root, runs the orchestrator. Create a NanoClaw skill at `$PROJ/.claude/skills/board-review/SKILL.md` that tells NanoClaw Claude how to invoke the bridge with timing estimates and a polling pattern. Add bridge section to BOARD.md.
+**nanoclaw:** Create `$BOARD/.board/bridge/run-review.sh` (executable) that accepts a brief, populates each agent's `inbox/brief.md` (not a dead `board/inbox/` path), switches to board user if root, runs the orchestrator. The bridge must include `unset CLAUDECODE` before any Claude invocation. Create a NanoClaw skill at `$PROJ/.claude/skills/board-review/SKILL.md` that tells NanoClaw Claude how to invoke the bridge with timing estimates and a polling pattern. Add bridge section to BOARD.md.
 
 **claude-project:** Create a skill at `$PROJ/.claude/skills/board-review/SKILL.md` (or `frontierboard-review` if name is taken) that triggers the board from any Claude session. Include timing estimates, background launch with nohup, polling, and cleanup. Check for existing skill — if it's a previous FrontierBoard install, offer to update; if unrelated, use alternate name. Add integration section to BOARD.md. Tell the user what was created and how to use it.
 

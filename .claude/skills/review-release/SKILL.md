@@ -13,7 +13,7 @@ Three modes — detect from what the user says:
 
 **Mode B — Safety review:** Is this repo safe to install? Static analysis only — do not run code you're evaluating for safety.
 
-**Mode C — Full build review:** Clone, install, run tests, capture failures. The patch log is the primary artifact. Requires Docker for container builds.
+**Mode C — Full build review:** Clone, install, run tests, capture failures. The patch log is the primary artifact. **Requires Docker** — all install/build steps run inside a container to prevent untrusted code from accessing the host filesystem. If Docker is not available, refuse Mode C and suggest Mode B (safety review) instead.
 
 **Entry point:** Board agents must exist before running this skill. If no agents exist yet, run `/setup` first — it creates the agents and board structure. Then come back here for the actual review.
 
@@ -73,7 +73,7 @@ Same as `/run` — launch all agents in parallel, wait for all reports.
 
 ## Step 6: Synthesise
 
-Same synthesis as `/run` Steps 4–6 — collect reports, consensus/divergence/conflicts, log to `board/REVIEW-LOG.md`.
+Same synthesis as `/run` Step 3 (Consolidation) and Step 4 (Deliberation) — collect reports, consensus/divergence/conflicts, log to `.board/board/REVIEW-LOG.md`.
 
 ---
 

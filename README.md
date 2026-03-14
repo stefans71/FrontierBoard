@@ -24,7 +24,9 @@
 
 ## What It Is
 
-FrontierBoard gives any project an independent review board made of AI agents. Each agent is a frontier model CLI — Claude, Codex, Qwen, or any other — running in its own isolated directory with its own settings. They don't coordinate. They don't see each other's work. They review independently, write their reports, and your Claude synthesises the findings.
+FrontierBoard gives any project an independent review board made of AI agents. Each agent is a frontier model CLI — Claude, Codex, Qwen, or any other — running in its own directory with its own settings. They don't coordinate. They don't see each other's work. They review independently, write their reports, and your Claude synthesises the findings.
+
+> **Note:** In the current version (v1), blind review is enforced by agent instructions, not by technical isolation. Agents run as the same user and could theoretically access each other's directories. Container-based isolation is [planned for v2](docs/ROADMAP-CONTAINER-ISOLATION.md).
 
 Point it at code, architecture, a business decision, a hiring brief, a financial model. The board has no fixed domain. You bring the question. The board brings the perspectives.
 
@@ -109,7 +111,7 @@ graph TD
     G --> H[you get signal you can trust]
 ```
 
-Each agent runs from its own directory. That directory contains a settings file for that agent's CLI. When the CLI starts, it finds that local settings file first — and stops walking up the tree. Your project config, your interactive session, your other agents — none of it bleeds through.
+Each agent runs from its own directory. That directory contains a settings file for that agent's CLI. When the CLI starts, it finds that local settings file first — and stops walking up the tree. Your project config, your interactive session, your other agents — the settings don't bleed through.
 
 Your project Claude can request a board review without you opening a second terminal. It writes a brief, shells out, the agents run in parallel, and it reads the synthesis back to you.
 
@@ -125,6 +127,7 @@ Your project Claude can request a board review without you opening a second term
 | `/run` | Runs all agents in parallel · collects reports · synthesises findings |
 | `/review-release` | Reviews a GitHub repo or release — static analysis, safety verdict, or full build monitoring |
 | `/new-agent` | Adds a new agent to the board — same conversational flow |
+| `/agents-yolo` | Toggles YOLO (full autonomy) vs supervised mode for all agents |
 
 Plain language always works. The slash commands are shortcuts.
 
