@@ -190,7 +190,6 @@ timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \
   -e ANTHROPIC_BASE_URL=http://host.docker.internal:$PROXY_PORT \
   -e ANTHROPIC_API_KEY=placeholder \
-  -e HTTP_X_FB_UPSTREAM=anthropic \
   --add-host=host.docker.internal:host-gateway \
   -v $PROJ:/workspace/project:ro \
   -v /dev/null:/workspace/project/.env:ro \
@@ -210,7 +209,6 @@ timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \
   -e OPENAI_BASE_URL=http://host.docker.internal:$PROXY_PORT \
   -e OPENAI_API_KEY=placeholder \
-  -e HTTP_X_FB_UPSTREAM=openai \
   --add-host=host.docker.internal:host-gateway \
   -v $PROJ:/workspace/project:ro \
   -v /dev/null:/workspace/project/.env:ro \

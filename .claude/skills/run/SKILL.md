@@ -106,6 +106,8 @@ If all sign off → complete. If any block:
 
 ## Step 6: Post-Review
 
+If `isolation: container`, stop the credential proxy: `node $BOARD/container/fb-credential-proxy.cjs --stop`.
+
 Append to `.board/board/REVIEW-LOG.md`: what was reviewed, date, mode, rounds, agents, FIX NOW table, DEFER table with triggers, INFO items, key decisions.
 
 Create/update `.board/board/DEFERRED_WORK.md` with any new DEFER items. Update resolved items.

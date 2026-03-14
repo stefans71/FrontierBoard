@@ -44,8 +44,10 @@ function detectBindHost() {
     if (output) return output;
   } catch (e) {}
 
-  // Fallback: bind to all interfaces (containers can't reach 127.0.0.1)
-  return '0.0.0.0';
+  // Fallback: standard Docker bridge IP (0.0.0.0 would expose proxy to public internet)
+  console.log('WARNING: Could not detect docker0 bridge IP. Using 172.17.0.1 (standard Docker bridge).');
+  console.log('If containers cannot reach the proxy, set FB_PROXY_HOST explicitly.');
+  return '172.17.0.1';
 }
 
 const HOST = detectBindHost();
@@ -222,7 +224,7 @@ function startProxy() {
 
       if (!creds[upstream]) {
         res.writeHead(401);
-        res.end('Upstream not available');
+        res.end(`No ${upstream} credentials configured on the proxy host`);
         return;
       }
 
