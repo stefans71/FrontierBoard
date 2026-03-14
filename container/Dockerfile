@@ -1,6 +1,6 @@
-# FrontierBoard Agent Container
-# Runs board agents (Claude Code, Codex, Qwen) in OS-level isolation
-# Agents can only see their own inbox/outbox and the project source (read-only)
+# Unified AI Agent Container
+# Serves both FrontierBoard (board review agents) and NanoClaw (chat agents)
+# Mode is selected via AGENT_MODE env var: "fb" (default) or "nc"
 
 FROM node:22-slim
 
@@ -31,20 +31,26 @@ RUN apt-get update && apt-get install -y \
 ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Install CLIs globally
+# Install CLIs globally (shared across both modes)
 # Claude Code + agent-browser (Anthropic)
 RUN npm install -g @anthropic-ai/claude-code agent-browser
-# Codex (OpenAI) — install separately so failures are visible
+# Codex (OpenAI)
 RUN npm install -g @openai/codex
 
-# Workspace directories (FB convention)
-RUN mkdir -p /workspace/project \
+# Workspace directories (unified — each mode uses its own subset)
+RUN mkdir -p \
+    /workspace/project \
     /workspace/agent/inbox \
     /workspace/agent/outbox \
     /workspace/agent/learnings \
-    /workspace/agent/contexts
+    /workspace/agent/contexts \
+    /workspace/group \
+    /workspace/global \
+    /workspace/ipc/messages \
+    /workspace/ipc/tasks \
+    /workspace/ipc/input
 
-# Entrypoint routes to the correct CLI
+# Entrypoint: unified dispatcher
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 

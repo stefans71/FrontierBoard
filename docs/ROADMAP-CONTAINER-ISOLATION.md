@@ -1,6 +1,6 @@
 # Roadmap: Container Isolation (v2.0)
 
-**Status:** Phase 1 + Phase 2 implemented. Container isolation with credential proxy. Phase 3 (NanoClaw convergence) is future work.
+**Status:** All 3 phases implemented. Container isolation + credential proxy + NanoClaw convergence.
 
 ---
 
@@ -181,11 +181,12 @@ Container mode skips board user creation entirely.
 - Container invocation templates use `ANTHROPIC_BASE_URL=http://host.docker.internal:$PROXY_PORT` with `ANTHROPIC_API_KEY=placeholder`
 - Real keys never enter containers — not in env, files, or `/proc`
 
-### Phase 3: NanoClaw Convergence
-- Shared container image or base layer between NanoClaw and FB
-- NanoClaw evolves from "messaging bridge" to "AI agent runtime"
-- Projects themselves containerized with FB as cross-project governance service
-- This is the bigger vision: all projects in isolated containers, FB accessible across all of them
+### Phase 3: NanoClaw Convergence ✓ DONE
+- Unified container image supports both FB (`AGENT_MODE=fb`) and NanoClaw (`AGENT_MODE=nc`) modes
+- Single Dockerfile with shared system deps, CLIs, and workspace directories
+- Unified entrypoint dispatches to CLI (FB) or agent-runner (NC) based on mode
+- Convergence documentation at `docs/CONVERGENCE.md`
+- NanoClaw-side changes (container-runner.ts, build.sh) are a separate PR in the NC repo
 
 ### Repo Strategy
 
