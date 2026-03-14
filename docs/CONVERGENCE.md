@@ -40,7 +40,7 @@ Both modes share the same base (node:22-slim + Chromium + Claude Code + Codex + 
 
 **Input:** JSON via stdin (prompt, sessionId, groupFolder, chatJid, isMain)
 
-**Prerequisites:** The host must mount the full agent-runner directory at `/app` (read-only). This directory must contain `src/`, `package.json`, `tsconfig.json`, and `node_modules/` with TypeScript installed. NanoClaw's existing `container-runner.ts` already provides this mount — the image does not ship its own TypeScript or agent-runner deps.
+**Prerequisites:** The host must mount the full agent-runner directory at `/app` (read-only). This directory must contain `src/`, `package.json`, `tsconfig.json`, and `node_modules/` with TypeScript installed. NanoClaw's `container-runner.ts` currently mounts agent-runner source but may need updating to mount the full directory at `/app:ro` — see "NanoClaw-Side Changes" below. The image does not ship its own TypeScript or agent-runner deps.
 
 **Mounts:**
 | Container Path | Host Path | Mode |
