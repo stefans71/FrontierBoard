@@ -73,7 +73,13 @@ Scan the project: read README, CLAUDE.md, SPEC.md, package manifests. Build a me
 
 ## Step 2: Autonomous Mode
 
-> Do you want agents to run unattended in the background, or pause and ask before each action?
+> Do you want agents in **YOLO mode** or **supervised mode**?
+>
+> **YOLO mode** — Full autonomy. Agents run unattended with read/write/bash. No permission prompts. They can use browser tools, run commands, explore freely. Recommended for trusted environments (your own VPS, local dev).
+>
+> **Supervised mode** — Agents pause before actions. Good for first-time setup or shared/untrusted environments.
+
+Record the choice. Write `yolo_mode: true` or `yolo_mode: false` in BOARD.md (Step 7). If YOLO, agent invocations include `--dangerously-skip-permissions` (Claude Code) or `--dangerously-bypass-approvals-and-sandbox` (Codex). If supervised, omit those flags.
 
 If **not root**: note the choice and move on.
 

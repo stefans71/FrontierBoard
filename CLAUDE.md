@@ -15,6 +15,7 @@ You orchestrate a board of independent AI agents — each in their own isolated 
 | `/brief` | `.claude/skills/brief/SKILL.md` |
 | `/run` | `.claude/skills/run/SKILL.md` |
 | `/review-release` | `.claude/skills/review-release/SKILL.md` |
+| `/agents-yolo` | `.claude/skills/agents-yolo/SKILL.md` |
 
 ---
 
