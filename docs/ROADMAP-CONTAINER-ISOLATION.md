@@ -1,6 +1,6 @@
 # Roadmap: Container Isolation (v2.0)
 
-**Status:** Phase 1 implemented — Dockerfile, entrypoint, build script, setup + run skill support. Credential proxy (Phase 2) not yet built.
+**Status:** Phase 1 + Phase 2 implemented. Container isolation with credential proxy. Phase 3 (NanoClaw convergence) is future work.
 
 ---
 
@@ -171,10 +171,14 @@ Container mode skips board user creation entirely.
 - `run/SKILL.md`: verify image exists, use `docker run` when `isolation: container`
 - MVP: API key passed directly via `-e` (no proxy yet)
 
-### Phase 2: Credential Proxy
-- Standalone `container/fb-credential-proxy.js` (extracted from NanoClaw's pattern)
-- Multi-upstream: Anthropic, OpenAI, DashScope
-- Detect and reuse NanoClaw's proxy when available
+### Phase 2: Credential Proxy ✓ DONE
+- `container/fb-credential-proxy.js` — standalone Node.js proxy, zero dependencies
+- Multi-upstream: Anthropic (x-api-key + OAuth), OpenAI (Bearer), DashScope (Bearer)
+- Auto-detects upstream from request headers (x-api-key → Anthropic, OpenAI user-agent → OpenAI)
+- PID file management with `--stop` flag for clean shutdown
+- Detects and reuses NanoClaw's proxy (port 3001) when available
+- Container invocation templates use `ANTHROPIC_BASE_URL=http://host.docker.internal:$PROXY_PORT` with `ANTHROPIC_API_KEY=placeholder`
+- Real keys never enter containers — not in env, files, or `/proc`
 
 ### Phase 3: NanoClaw Convergence
 - Shared container image or base layer between NanoClaw and FB

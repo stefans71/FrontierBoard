@@ -87,7 +87,7 @@ Record the choice. Write `yolo_mode: true` or `yolo_mode: false` in BOARD.md (St
 
 > How should agents be isolated?
 >
-> **Container** (recommended) — Each agent runs in its own Docker container. Agents physically cannot see each other's work or access your filesystem beyond the project source (read-only). Requires Docker — I'll install it if needed. **Phase 1 note:** API keys are passed as environment variables — visible via `docker inspect`, host process listings (`ps aux`), and shell history. A credential proxy (Phase 2) will eliminate this. Do not use container mode on shared hosts where other users can inspect Docker containers or read process listings. Consider using `--env-file` to keep keys out of the command line.
+> **Container** (recommended) — Each agent runs in its own Docker container. Agents physically cannot see each other's work or access your filesystem beyond the project source (read-only). API keys never enter containers — a credential proxy on the host injects them transparently. Requires Docker — I'll install it if needed.
 >
 > **Bare** — Agents run directly on the host. Blind review enforced by instructions only. Choose this if Docker truly can't run in your environment.
 
@@ -98,7 +98,9 @@ Record the choice. Write `isolation: container` or `isolation: bare` in BOARD.md
   - Debian/Ubuntu: `apt-get install -y docker.io`
   - macOS: tell user to install Docker Desktop
   - Other: `curl -fsSL https://get.docker.com | sh`
+- Check if Node.js is installed (`node --version`). Needed for the credential proxy.
 - Build the agent image: `$BOARD/container/build.sh`
+- Start the credential proxy: `node $BOARD/container/fb-credential-proxy.cjs &` — runs in the background, injects real API keys into container requests so containers never see credentials. Check if NanoClaw's proxy (port 3001) is already running first — if so, use it instead of starting a second one.
 - **Skip board user creation** — the container IS the sandbox. No `llmuser`, no `sudo -u`, no chown needed.
 
 **If bare mode:**
@@ -177,14 +179,17 @@ Write `$BOARD/.board/board/BOARD.md` — operational source of truth. Include: p
 
 ### Container mode invocation templates
 
-Container agents don't need `unset CLAUDECODE` or a board user — the container is a fresh process with full isolation.
+Container agents don't need `unset CLAUDECODE` or a board user — the container is a fresh process with full isolation. Credentials are handled by the proxy — containers get placeholder keys and the proxy URL.
+
+**Credential proxy must be running** before launching container agents. The proxy port defaults to 3002 (or NanoClaw's 3001 if reusing). Record the proxy port in BOARD.md as `proxy_port:`.
 
 **Claude Code (container):**
 ```bash
 timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_CLI=claude -e FB_YOLO=true \
   -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \
-  -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+  -e ANTHROPIC_BASE_URL=http://host.docker.internal:$PROXY_PORT \
+  -e ANTHROPIC_API_KEY=placeholder \
   --add-host=host.docker.internal:host-gateway \
   -v $PROJ:/workspace/project:ro \
   -v /dev/null:/workspace/project/.env:ro \
@@ -202,7 +207,8 @@ timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
 timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_CLI=codex -e FB_YOLO=true \
   -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \
-  -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  -e OPENAI_BASE_URL=http://host.docker.internal:$PROXY_PORT \
+  -e OPENAI_API_KEY=placeholder \
   --add-host=host.docker.internal:host-gateway \
   -v $PROJ:/workspace/project:ro \
   -v /dev/null:/workspace/project/.env:ro \
@@ -214,7 +220,7 @@ timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   frontierboard-agent:latest
 ```
 
-Replace `$ANTHROPIC_API_KEY` / `$OPENAI_API_KEY` with the actual key from the host environment or credential file. If supervised mode, set `FB_YOLO=false`.
+Containers get `placeholder` as the API key and the proxy URL as the base URL. The proxy intercepts requests and injects real credentials. **Real keys never enter the container** — not in env, files, or `/proc`. If supervised mode, set `FB_YOLO=false`.
 
 ### Bare mode invocation templates
 

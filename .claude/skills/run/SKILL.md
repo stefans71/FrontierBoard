@@ -26,7 +26,10 @@ If the user hasn't specified depth:
 
 Read `.board/board/BOARD.md` for agent list, invocation commands, isolation mode (`container` or `bare`), board user, parallelism pattern. Read `.board/board/DEFERRED_WORK.md` if it exists — include in every brief.
 
-If `isolation: container`, verify the `frontierboard-agent` Docker image exists (`docker images frontierboard-agent`). If missing, build it: `$BOARD/container/build.sh`.
+If `isolation: container`:
+1. Verify the `frontierboard-agent` Docker image exists (`docker images frontierboard-agent`). If missing, build it: `$BOARD/container/build.sh`.
+2. Start the credential proxy if not already running: `node $BOARD/container/fb-credential-proxy.cjs &`. Check if it's already running by testing the PID file at `$BOARD/container/.fb-proxy.pid`, or if NanoClaw's proxy (port 3001) responds. Record the proxy port for use in invocation commands.
+3. After all agents complete (Step 6), stop the proxy: `node $BOARD/container/fb-credential-proxy.cjs --stop`.
 
 ---
 
