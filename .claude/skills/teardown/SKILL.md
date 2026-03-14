@@ -74,7 +74,7 @@ Only if the board was using container mode:
 
 If confirmed:
 1. Stop running containers: `docker ps -q --filter "name=fb-" | xargs -r docker stop`
-2. Remove stopped containers: `docker container prune -f --filter "label=frontierboard"`
+2. Remove stopped containers: `docker container ls -a -q --filter "name=fb-" | xargs -r docker rm`
 3. Remove image: `docker rmi frontierboard-agent:latest`
 
 ---

@@ -87,7 +87,7 @@ Record the choice. Write `yolo_mode: true` or `yolo_mode: false` in BOARD.md (St
 
 > How should agents be isolated?
 >
-> **Container** (recommended) — Each agent runs in its own Docker container. Agents physically cannot see each other's work or access your filesystem beyond the project source (read-only). Requires Docker — I'll install it if needed. **Phase 1 note:** API keys are passed as environment variables and are visible via `docker inspect`. A credential proxy (Phase 2) will eliminate this. Do not use container mode on shared hosts where other users can inspect Docker containers.
+> **Container** (recommended) — Each agent runs in its own Docker container. Agents physically cannot see each other's work or access your filesystem beyond the project source (read-only). Requires Docker — I'll install it if needed. **Phase 1 note:** API keys are passed as environment variables — visible via `docker inspect`, host process listings (`ps aux`), and shell history. A credential proxy (Phase 2) will eliminate this. Do not use container mode on shared hosts where other users can inspect Docker containers or read process listings. Consider using `--env-file` to keep keys out of the command line.
 >
 > **Bare** — Agents run directly on the host. Blind review enforced by instructions only. Choose this if Docker truly can't run in your environment.
 
