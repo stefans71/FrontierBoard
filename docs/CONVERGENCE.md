@@ -40,6 +40,8 @@ Both modes share the same base (node:22-slim + Chromium + Claude Code + Codex + 
 
 **Input:** JSON via stdin (prompt, sessionId, groupFolder, chatJid, isMain)
 
+**Prerequisites:** The host must mount the full agent-runner directory at `/app` (read-only). This directory must contain `src/`, `package.json`, `tsconfig.json`, and `node_modules/` with TypeScript installed. NanoClaw's existing `container-runner.ts` already provides this mount — the image does not ship its own TypeScript or agent-runner deps.
+
 **Mounts:**
 | Container Path | Host Path | Mode |
 |---|---|---|
@@ -47,10 +49,10 @@ Both modes share the same base (node:22-slim + Chromium + Claude Code + Codex + 
 | `/workspace/group` | Group folder | `rw` |
 | `/workspace/global` | Global memory | `ro` |
 | `/workspace/ipc` | IPC directory | `rw` |
-| `/app/src` | Agent-runner source | `rw` |
+| `/app` | Agent-runner directory (src/, tsconfig.json, node_modules/) | `ro` |
 | `/home/node/.claude` | Per-group sessions | `rw` |
 
-**Credential proxy:** NanoClaw's built-in proxy (port 3001).
+**Credential proxy:** NanoClaw's built-in proxy (port 3001). If you only use Anthropic, NanoClaw's existing proxy works unchanged. Switch to `fb-credential-proxy.cjs` only if you need OpenAI or DashScope support.
 
 ---
 
@@ -100,7 +102,8 @@ These are non-breaking changes — NanoClaw's existing orchestrator logic, chann
 
 These changes live in the NanoClaw repo, not FrontierBoard:
 
-1. Update `container-runner.ts` to pass `AGENT_MODE=nc` env var
-2. Update `build.sh` to reference `frontierboard-agent` image (or tag as both)
-3. Optionally replace `src/credential-proxy.ts` with `fb-credential-proxy.cjs`
-4. Test: verify NanoClaw agent-runner works in the unified image
+1. **`container-runner.ts`:** Add `-e AGENT_MODE=nc` to docker run args
+2. **`container-runner.ts`:** Mount agent-runner at `/app:ro` (the full directory with `src/`, `tsconfig.json`, `node_modules/`) — NanoClaw already mounts agent-runner source, just ensure the mount point is `/app` not a subdirectory
+3. **`build.sh`:** Reference `frontierboard-agent` image (or tag as both names)
+4. **Credential proxy (optional):** Replace `src/credential-proxy.ts` with `fb-credential-proxy.cjs` for multi-upstream support. Only needed if adding Codex/OpenAI agents to NanoClaw
+5. **Test:** Verify NanoClaw agent-runner compiles and runs in the unified image end-to-end

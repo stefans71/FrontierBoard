@@ -1,6 +1,6 @@
 # Roadmap: Container Isolation (v2.0)
 
-**Status:** All 3 phases implemented. Container isolation + credential proxy + NanoClaw convergence.
+**Status:** Phase 1 + Phase 2 + Phase 3a (FB-side) implemented. Phase 3b (NC-side integration) pending as a separate NanoClaw PR.
 
 ---
 
@@ -181,12 +181,17 @@ Container mode skips board user creation entirely.
 - Container invocation templates use `ANTHROPIC_BASE_URL=http://host.docker.internal:$PROXY_PORT` with `ANTHROPIC_API_KEY=placeholder`
 - Real keys never enter containers — not in env, files, or `/proc`
 
-### Phase 3: NanoClaw Convergence ✓ DONE
+### Phase 3a: NanoClaw Convergence (FB-side) ✓ DONE
 - Unified container image supports both FB (`AGENT_MODE=fb`) and NanoClaw (`AGENT_MODE=nc`) modes
 - Single Dockerfile with shared system deps, CLIs, and workspace directories
 - Unified entrypoint dispatches to CLI (FB) or agent-runner (NC) based on mode
 - Convergence documentation at `docs/CONVERGENCE.md`
+
+### Phase 3b: NanoClaw Convergence (NC-side) — PENDING
 - NanoClaw-side changes (container-runner.ts, build.sh) are a separate PR in the NC repo
+- Required: update `container-runner.ts` to pass `AGENT_MODE=nc`, mount at `/app:ro`
+- Required: test NC mode end-to-end with real agent-runner
+- Required: validate proxy reuse (Q10)
 
 ### Repo Strategy
 

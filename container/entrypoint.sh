@@ -52,18 +52,22 @@ case "$AGENT_MODE" in
 
   nc)
     # --- NanoClaw mode: compile + run agent-runner ---
-    # Expects agent-runner source at /app/src (mounted by NanoClaw host)
-    if [ -d /app/src ]; then
-      cd /app && npx tsc --outDir /tmp/dist 2>&1 >&2
-      ln -s /app/node_modules /tmp/dist/node_modules 2>/dev/null || true
-      chmod -R a-w /tmp/dist
-      cat > /tmp/input.json
-      exec node /tmp/dist/index.js < /tmp/input.json
-    else
-      echo "ERROR: NanoClaw agent-runner source not found at /app/src" >&2
-      echo "Mount the agent-runner source directory to /app/src" >&2
+    # Expects the full agent-runner directory mounted at /app (read-only)
+    # including: src/, package.json, tsconfig.json, node_modules/
+    # NanoClaw's container-runner.ts handles this mount.
+    if [ ! -f /app/package.json ]; then
+      echo "ERROR: NanoClaw agent-runner not found at /app" >&2
+      echo "Mount the full agent-runner directory (with src/, tsconfig.json, node_modules/) to /app" >&2
       exit 1
     fi
+    cd /app && npx tsc --outDir /tmp/dist > /dev/null 2>&1 || {
+      echo "ERROR: TypeScript compilation failed. Check /app/src for errors." >&2
+      cd /app && npx tsc --outDir /tmp/dist 2>&1  # Re-run to show errors
+      exit 1
+    }
+    ln -s /app/node_modules /tmp/dist/node_modules 2>/dev/null || true
+    cat > /tmp/input.json
+    exec node /tmp/dist/index.js < /tmp/input.json
     ;;
 
   *)
