@@ -34,9 +34,17 @@ Read `.board/board/BOARD.md` for agent list, invocation commands, board user, pa
 
 Verify each agent's inbox has `brief.md` and `context.md`. If empty, ask about running `/brief` first.
 
+Generate a run ID (e.g., `run-$(date +%s)`) and write it to each agent's `outbox/.run-id` before launching. This sentinel prevents stale report confusion.
+
 Launch all agents simultaneously per BOARD.md parallelism pattern. Each runs from their own directory. Tell the user which agents are running and rough timing.
 
-Wait for all to complete. Check exit codes — a non-zero exit or timeout means the agent failed. Verify each `outbox/report.md` exists and was modified after the run started (prevents stale reports). Diagnose failures (auth, permissions, CLI not found, root error, timeout). Report failed agents explicitly before proceeding. Do NOT share reports between agents.
+Wait for all to complete. For each agent:
+1. Check exit code — non-zero or timeout (exit 124) means failure
+2. Verify `outbox/report.md` exists and was modified after the run started
+3. If Codex: check whether `outbox/report.md` contains CLI error output (starts with `OpenAI Codex v` or contains `ERROR:`) — if so, the agent failed, do not treat the error text as findings
+4. Report failed agents explicitly before proceeding
+
+Do NOT share reports between agents. Do NOT synthesize error output as findings.
 
 ---
 
