@@ -31,7 +31,8 @@ case "$FB_CLI" in
     exec codex exec $FLAGS "$FB_PROMPT"
     ;;
   qwen)
-    exec qwen-coder --prompt "$FB_PROMPT"
+    echo "ERROR: Qwen is not available in container mode (this release). Use bare mode for Qwen agents, or add qwen-coder to the Dockerfile." >&2
+    exit 1
     ;;
   *)
     echo "ERROR: Unknown CLI '$FB_CLI'. Must be one of: claude, codex, qwen" >&2

@@ -26,7 +26,11 @@
 
 FrontierBoard gives any project an independent review board made of AI agents. Each agent is a frontier model CLI — Claude, Codex, Qwen, or any other — running in its own directory with its own settings. They don't coordinate. They don't see each other's work. They review independently, write their reports, and your Claude synthesises the findings.
 
-> **Note:** In the current version (v1), blind review is enforced by agent instructions, not by technical isolation. Agents run as the same user and could theoretically access each other's directories. Container-based isolation is [planned for v2](docs/ROADMAP-CONTAINER-ISOLATION.md).
+> **Note:** In bare mode, blind review is enforced by agent instructions, not by technical isolation. Container mode (v2.0) provides real OS-level isolation — agents physically cannot see each other's directories. API keys are passed as environment variables in Phase 1; a credential proxy (Phase 2) will eliminate this.
+
+### Upgrading existing installs
+
+If you set up FrontierBoard before v2.0, your BOARD.md may be missing new fields (`isolation`, `timeout`, `unset CLAUDECODE`). To upgrade: re-run `/setup` on the same project — setup detects existing agents and updates the configuration without rebuilding them. Or manually add the fields following the templates in `setup/SKILL.md` Step 7.
 
 Point it at code, architecture, a business decision, a hiring brief, a financial model. The board has no fixed domain. You bring the question. The board brings the perspectives.
 

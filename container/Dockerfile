@@ -34,8 +34,8 @@ ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 # Install CLIs globally
 # Claude Code + agent-browser (Anthropic)
 RUN npm install -g @anthropic-ai/claude-code agent-browser
-# Codex (OpenAI)
-RUN npm install -g @openai/codex || true
+# Codex (OpenAI) — install separately so failures are visible
+RUN npm install -g @openai/codex
 
 # Workspace directories (FB convention)
 RUN mkdir -p /workspace/project \
@@ -49,7 +49,7 @@ COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Non-root user for security
-RUN chown -R node:node /workspace /home/node && chmod 777 /home/node
+RUN chown -R node:node /workspace /home/node && chmod 755 /home/node
 USER node
 WORKDIR /workspace/agent
 

@@ -29,13 +29,19 @@ Ask which CLI they want this agent to use. If the board already uses a particula
 
 ## Step 3: CLI Check
 
-Check whether the CLI for this new agent is already installed and authenticated.
+Read `isolation:` from BOARD.md to determine the mode.
 
-If it's already in use by another agent on this board, it's ready — no setup needed. Tell the user and move on.
+**If `isolation: container`:**
+- Verify the `frontierboard-agent` Docker image exists. If not, build it: `$BOARD/container/build.sh`
+- Check if the requested CLI is supported in the container image (Claude Code and Codex are supported; Qwen is bare-mode only in this release)
+- If the CLI isn't supported in the image, tell the user and suggest bare mode or a different CLI
+- No host-level CLI installation needed — the container has the CLIs
 
-If it's new to this board, offer to walk through installation and authentication. Follow the same approach as `/setup` Step 5 (CLI Setup) for that specific CLI.
-
-If a board user exists, make sure the new CLI's credentials are also accessible to that user.
+**If `isolation: bare` (or no isolation field):**
+- Check whether the CLI for this new agent is already installed and authenticated on the host
+- If it's already in use by another agent on this board, it's ready — no setup needed. Tell the user and move on.
+- If it's new to this board, offer to walk through installation and authentication. Follow the same approach as `/setup` Step 5 (CLI Setup) for that specific CLI.
+- If a board user exists, make sure the new CLI's credentials are also accessible to that user.
 
 ---
 
@@ -52,6 +58,10 @@ For contexts: check what contexts already exist for the other agents. Write matc
 ## Step 5: Update BOARD.md
 
 Add the new agent to `.board/board/BOARD.md` — their directory, CLI, model, role description, and invocation command.
+
+**Generate the correct invocation command** based on `isolation:` mode:
+- **Container mode:** use the container invocation template from `/setup` Step 7 (`docker run` with mounts and `FB_CLI`/`FB_YOLO` env vars)
+- **Bare mode:** use the bare invocation template (`sudo -u` with `unset CLAUDECODE` and CLI flags)
 
 Update the parallelism pattern to include the new agent.
 

@@ -13,7 +13,8 @@ Remove a FrontierBoard installation cleanly. Confirm before each destructive act
 
 Read `.board/board/BOARD.md` to understand the installation:
 - Board path and project path
-- Board user (if created)
+- Isolation mode (`container` or `bare`)
+- Board user (if created — bare mode only)
 - Integration mode (nanoclaw, claude-project, standalone, global)
 - Agent list
 
@@ -21,7 +22,24 @@ If no BOARD.md found, check if `.board/` exists at all. If nothing exists, tell 
 
 ---
 
-## Step 2: Show What Will Be Removed
+## Step 2: Determine Scope (Global Mode)
+
+**If this is a global install** (`$BOARD` under `~/.frontierboard/`):
+
+> This is a global install with shared agents. What do you want to remove?
+>
+> 1. **This project only** — remove per-project state at `.board/projects/{project-name}/` but keep shared agents and other projects intact
+> 2. **Entire global install** — remove everything: all agents, all projects, the global skill
+
+If "this project only": delete `.board/projects/{project-name}/` and any project-specific integration skill. Skip Steps 3-5 (shared agents stay). Go to Step 6.
+
+If "entire install": continue with full teardown below.
+
+**If not global:** continue normally.
+
+---
+
+## Step 3: Show What Will Be Removed
 
 List everything that was created during setup:
 
@@ -30,12 +48,13 @@ List everything that was created during setup:
 > **Board files:** `.board/` directory (agents, reports, review log, briefs)
 > **Integration skill:** `$PROJ/.claude/skills/board-review/SKILL.md` (if exists)
 > **Global skill:** `~/.claude/skills/frontierboard/SKILL.md` (if global install)
-> **Board user:** `$BOARD_USER` system account + sudoers entry (if created)
+> **Board user:** `$BOARD_USER` system account + sudoers entry (if bare mode created one)
+> **Container artifacts:** Docker image + stopped containers (if container mode)
 > **Gitignore entries:** FrontierBoard lines in `.gitignore`
 
 ---
 
-## Step 3: Remove Board Files
+## Step 4: Remove Board Files
 
 After user confirms:
 
@@ -45,9 +64,24 @@ After user confirms:
 
 ---
 
-## Step 4: Remove Board User (if exists)
+## Step 4b: Remove Container Artifacts (if isolation: container)
 
-Only if a board user was created during setup:
+Only if the board was using container mode:
+
+> Container mode was active. Clean up Docker artifacts?
+> - Remove `frontierboard-agent` Docker image
+> - Stop and remove any running `fb-*` containers
+
+If confirmed:
+1. Stop running containers: `docker ps -q --filter "name=fb-" | xargs -r docker stop`
+2. Remove stopped containers: `docker container prune -f --filter "label=frontierboard"`
+3. Remove image: `docker rmi frontierboard-agent:latest`
+
+---
+
+## Step 5: Remove Board User (if exists — bare mode only)
+
+Only if a board user was created during setup (bare mode):
 
 > A system user `$BOARD_USER` was created for agent isolation. Remove it?
 > This will delete the user account and its sudoers entry. Home directory is NOT deleted.
@@ -59,13 +93,13 @@ If confirmed:
 
 ---
 
-## Step 5: Clean Gitignore
+## Step 6: Clean Gitignore
 
 Remove FrontierBoard entries from `$BOARD/.gitignore`. Only remove lines that match known FrontierBoard patterns (`.board/`, `board/*/inbox/`, etc.). Leave all other entries intact.
 
 ---
 
-## Step 6: Done
+## Step 7: Done
 
 > FrontierBoard has been removed. The FrontierBoard repo clone at `$BOARD` still exists — delete it manually if you no longer need it.
 >
