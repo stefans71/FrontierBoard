@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-black?style=flat-square)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-required-orange?style=flat-square&logo=anthropic)](https://claude.ai/code)
-[![Skills](https://img.shields.io/badge/Skills-6-blue?style=flat-square)](#the-skills)
+[![Skills](https://img.shields.io/badge/Skills-8-blue?style=flat-square)](#the-skills)
 [![Models](https://img.shields.io/badge/Multi--Model-Claude_·_Codex_·_Qwen-purple?style=flat-square)](#requirements)
 [![Version](https://img.shields.io/badge/Version-2.0-brightgreen?style=flat-square)](https://github.com/stefans71/FrontierBoard/discussions)
 
@@ -149,6 +149,7 @@ The repo stays minimal. Your board is yours.
 ## Requirements
 
 - **[Claude Code](https://claude.ai/code)** — required. This is how you interact with the board.
+- **Docker** — recommended for container isolation mode. Agents run in isolated containers with no access to each other or your filesystem. Setup installs Docker if needed.
 - **Frontier model CLIs** — installed by your Claude during `/setup` as needed:
   - `claude` — Claude Code (Anthropic)
   - `codex` — Codex CLI (OpenAI) · [github.com/openai/codex](https://github.com/openai/codex)

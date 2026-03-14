@@ -81,11 +81,30 @@ Scan the project: read README, CLAUDE.md, SPEC.md, package manifests. Build a me
 
 Record the choice. Write `yolo_mode: true` or `yolo_mode: false` in BOARD.md (Step 7). If YOLO, agent invocations include `--dangerously-skip-permissions` (Claude Code) or `--dangerously-bypass-approvals-and-sandbox` (Codex). If supervised, omit those flags.
 
-If **not root**: note the choice and move on.
+---
 
-If **root** (see Hard-Won Knowledge #3): explain that AI tools block autonomous mode for root, and a separate user account is needed. Ask for a name (default: `llmuser`).
+## Step 2b: Isolation Mode
 
-Create the board user: idempotent useradd, sudoers entry with visudo validation (see Hard-Won Knowledge #4). Do this yourself — don't ask the user to run commands.
+> How should agents be isolated?
+>
+> **Container** (recommended) — Each agent runs in its own Docker container. Real OS isolation: agents physically cannot see each other's work or access your filesystem beyond the project source (read-only). Requires Docker — I'll install it if needed.
+>
+> **Bare** — Agents run directly on the host. Blind review enforced by instructions only. Choose this if Docker truly can't run in your environment.
+
+Record the choice. Write `isolation: container` or `isolation: bare` in BOARD.md (Step 7).
+
+**If container mode:**
+- Check if Docker is installed (`docker info`). If not, install it:
+  - Debian/Ubuntu: `apt-get install -y docker.io`
+  - macOS: tell user to install Docker Desktop
+  - Other: `curl -fsSL https://get.docker.com | sh`
+- Build the agent image: `$BOARD/container/build.sh`
+- **Skip board user creation** — the container IS the sandbox. No `llmuser`, no `sudo -u`, no chown needed.
+
+**If bare mode:**
+- If **not root**: note the choice and move on.
+- If **root** (see Hard-Won Knowledge #3): explain that AI tools block autonomous mode for root, and a separate user account is needed. Ask for a name (default: `llmuser`).
+- Create the board user: idempotent useradd, sudoers entry with visudo validation (see Hard-Won Knowledge #4). Do this yourself — don't ask the user to run commands.
 
 ---
 
@@ -152,16 +171,59 @@ Write `$BOARD/.board/CLAUDE.md` — the orchestrator identity. Include: project 
 
 ### BOARD.md
 
-Write `$BOARD/.board/board/BOARD.md` — operational source of truth. Include: project path, autonomous mode (`yolo_mode: true/false`), board user, per-agent invocation commands with `timeout 900` wrapper, parallelism pattern (run all agents in parallel, wait for all, check exit codes, verify report freshness).
+Write `$BOARD/.board/board/BOARD.md` — operational source of truth. Include: project path, autonomous mode (`yolo_mode: true/false`), isolation mode (`isolation: container/bare`), board user (bare mode only), per-agent invocation commands with `timeout 900` wrapper, parallelism pattern (run all agents in parallel, wait for all, check exit codes, verify report freshness).
 
 **All Claude Code invocation commands MUST include `unset CLAUDECODE`** (see Hard-Won Knowledge #1). **All Codex invocations MUST use `codex exec`** (see Hard-Won Knowledge #2).
 
-**Invocation template (Claude Code):**
+### Container mode invocation templates
+
+Container agents don't need `unset CLAUDECODE` or a board user — the container is a fresh process with full isolation.
+
+**Claude Code (container):**
+```bash
+timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
+  -e FB_CLI=claude -e FB_YOLO=true \
+  -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \
+  -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+  --add-host=host.docker.internal:host-gateway \
+  -v $PROJ:/workspace/project:ro \
+  -v /dev/null:/workspace/project/.env:ro \
+  -v $AGENT_DIR/CLAUDE.md:/workspace/agent/CLAUDE.md:ro \
+  -v $AGENT_DIR/inbox:/workspace/agent/inbox:ro \
+  -v $AGENT_DIR/outbox:/workspace/agent/outbox \
+  -v $AGENT_DIR/contexts:/workspace/agent/contexts:ro \
+  -v $AGENT_DIR/learnings:/workspace/agent/learnings \
+  -v $SETTINGS_DIR:/home/node/.claude \
+  frontierboard-agent:latest
+```
+
+**Codex (container):**
+```bash
+timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
+  -e FB_CLI=codex -e FB_YOLO=true \
+  -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \
+  -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  --add-host=host.docker.internal:host-gateway \
+  -v $PROJ:/workspace/project:ro \
+  -v /dev/null:/workspace/project/.env:ro \
+  -v $AGENT_DIR/CLAUDE.md:/workspace/agent/CLAUDE.md:ro \
+  -v $AGENT_DIR/inbox:/workspace/agent/inbox:ro \
+  -v $AGENT_DIR/outbox:/workspace/agent/outbox \
+  -v $AGENT_DIR/contexts:/workspace/agent/contexts:ro \
+  -v $AGENT_DIR/.codex:/home/node/.codex:ro \
+  frontierboard-agent:latest
+```
+
+Replace `$ANTHROPIC_API_KEY` / `$OPENAI_API_KEY` with the actual key from the host environment or credential file. If supervised mode, set `FB_YOLO=false`.
+
+### Bare mode invocation templates
+
+**Claude Code (bare):**
 ```bash
 timeout 900 sudo -u $BOARD_USER bash -c 'unset CLAUDECODE && cd $AGENT_DIR && claude --dangerously-skip-permissions -p "read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md"'
 ```
 
-**Invocation template (Codex):**
+**Codex (bare):**
 ```bash
 timeout 900 sudo -u $BOARD_USER bash -c 'cd $AGENT_DIR && codex exec --dangerously-bypass-approvals-and-sandbox "read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md"'
 ```

@@ -1,6 +1,6 @@
 # Roadmap: Container Isolation (v2.0)
 
-**Status:** Planning — architecture designed, not yet implemented.
+**Status:** Phase 1 implemented — Dockerfile, entrypoint, build script, setup + run skill support. Credential proxy (Phase 2) not yet built.
 
 ---
 
@@ -162,11 +162,14 @@ Container mode skips board user creation entirely.
 
 ## Implementation Phases
 
-### Phase 1: Container MVP
-- New files: `container/Dockerfile`, `container/entrypoint.sh`, `container/build.sh`
-- `setup/SKILL.md`: isolation mode choice, Docker install if needed, image build, containerized invocation generation
-- `run/SKILL.md`: use `docker run` when `isolation: container`
-- MVP: pass API key directly via `-e` (no proxy yet)
+### Phase 1: Container MVP ✓ DONE
+- `container/Dockerfile` — node:22-slim + Chromium + Claude Code + Codex + agent-browser
+- `container/entrypoint.sh` — routes to correct CLI via `FB_CLI` env var
+- `container/build.sh` — builds `frontierboard-agent:latest`
+- `setup/SKILL.md` Step 2b: isolation mode choice, Docker install if needed, image build
+- `setup/SKILL.md` Step 7: container invocation templates in BOARD.md
+- `run/SKILL.md`: verify image exists, use `docker run` when `isolation: container`
+- MVP: API key passed directly via `-e` (no proxy yet)
 
 ### Phase 2: Credential Proxy
 - Standalone `container/fb-credential-proxy.js` (extracted from NanoClaw's pattern)

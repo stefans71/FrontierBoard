@@ -24,7 +24,9 @@ If the user hasn't specified depth:
 
 ## Step 1: Read the Board
 
-Read `.board/board/BOARD.md` for agent list, invocation commands, board user, parallelism pattern. Read `.board/board/DEFERRED_WORK.md` if it exists — include in every brief.
+Read `.board/board/BOARD.md` for agent list, invocation commands, isolation mode (`container` or `bare`), board user, parallelism pattern. Read `.board/board/DEFERRED_WORK.md` if it exists — include in every brief.
+
+If `isolation: container`, verify the `frontierboard-agent` Docker image exists (`docker images frontierboard-agent`). If missing, build it: `$BOARD/container/build.sh`.
 
 ---
 
