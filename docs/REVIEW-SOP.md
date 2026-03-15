@@ -65,9 +65,36 @@ Final brief: all items with classifications and resolution. Agents state SIGN OF
 
 ## 5. Brief Requirements
 
-The brief is everything. Agents are ephemeral — they know nothing except what's in the brief.
+The brief is everything. Agents are ephemeral — they know nothing except what's in the brief. They have zero memory of prior reviews, prior rounds in previous sessions, or any context not explicitly provided. If you don't give it to them, they don't have it.
 
-**Required:** Context (what, why, audience), full artifact inline, evaluation criteria, output format.
+### What goes in every brief
+
+**Required:**
+- Context (what, why, audience)
+- Full artifact inline — code, diff, document, plan. Never summarize what agents can read themselves.
+- Evaluation criteria
+- Output format
+- **Deferred items** (see below)
+- **Broader context** when the artifact touches systems or decisions beyond its own scope — architecture, upstream dependencies, deployment environment, user constraints, prior decisions
+
+### Deferred items are active context
+
+Include the FULL contents of `DEFERRED_WORK.md` in every brief. Frame deferred items as evaluation targets, not exclusions:
+
+> "Evaluate whether your review triggers any of these deferred items. If a trigger condition is met by the artifact under review, promote to FIX NOW with evidence."
+
+Never say "do not re-raise unless triggered" — agents interpret this as "ignore." The whole point of carrying deferred items forward is that agents check whether the current work triggers them.
+
+### Broader context
+
+Agents reviewing a diff need to understand what the diff is changing and why. Agents reviewing a plan need to understand the system the plan operates in. Always ask: what context would a knowledgeable new reviewer need to evaluate this artifact? Include it.
+
+Examples:
+- Reviewing a proxy change? Include the container architecture, how agents reach the proxy, what CLIs are involved.
+- Reviewing a deployment plan? Include the current state, what exists, what's changing, what's staying.
+- Reviewing a business decision? Include the constraints, stakeholders, prior commitments.
+
+### Size limits
 
 If artifact exceeds ~50KB: executive summary + full text + section index. Over ~100KB: split into focused sessions.
 
@@ -108,7 +135,10 @@ Override agent positions. Issued between rounds, included in next brief. Must in
 |-------------|---------|
 | Skipping blind review | Always run Round 1 blind |
 | DEFER as "won't do" | DEFER with trigger, track in DEFERRED_WORK.md |
-| Briefs without full artifact | Inline everything |
+| "Do not re-raise deferred items" | Include full deferred list as active evaluation targets |
+| Briefs without full artifact | Inline everything — agents can't read what isn't there |
+| Briefs without broader context | Include architecture, environment, constraints agents need |
+| Assuming agents remember prior rounds | Every round is a fresh session — provide ALL context |
 | Sequential agent runs | Parallel per round |
 | Override without rationale | Always explain why |
 | More than 5 rounds | 3-4 is the sweet spot |
