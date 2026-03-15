@@ -104,6 +104,9 @@ Record the choice. Write `isolation: container` or `isolation: bare` in BOARD.md
 - Build the agent image: `$BOARD/container/build.sh`
 - Verify the credential proxy script exists at `$BOARD/container/fb-credential-proxy.cjs` (it runs during `/run`, not during setup)
 - **Skip board user creation** — the container IS the sandbox. No `llmuser`, no `sudo -u`, no chown needed.
+- **Firewall:** If UFW is active, allow Docker containers to reach the proxy: `ufw allow from <docker-subnet> to any port <proxy-port>` (e.g., `ufw allow from 10.0.0.0/24 to any port 3002`). Without this, containers can't reach the proxy even though it binds to the bridge IP.
+- **Outbox permissions:** Container agents run as `node` (uid 1000). After creating agent directories, `chown -R 1000:1000 $BOARD/.board/board/*/outbox $BOARD/.board/board/*/learnings` so agents can write reports.
+- **Credential mounting:** Claude Code with OAuth subscriptions (Max/Pro) needs the host credential file mounted into the container. Copy `~/.claude/.credentials.json` to a readable temp file and mount it: `-v /tmp/.fb-claude-creds.json:/home/node/.claude/.credentials.json:ro`. The credential proxy does NOT work with OAuth tokens — it only works with `ANTHROPIC_API_KEY`. If the user has an API key, use the proxy. If OAuth only, mount credentials directly.
 
 **If bare mode:**
 - If **not root**: note the choice and move on.
@@ -183,9 +186,29 @@ Write `$BOARD/.board/board/BOARD.md` — operational source of truth. Include: p
 
 Container agents don't need `unset CLAUDECODE` or a board user — the container is a fresh process with full isolation. Credentials are handled by the proxy — containers get placeholder keys and the proxy URL.
 
-**Credential proxy must be running** before launching container agents. The proxy port defaults to 3002 (or NanoClaw's 3001 if reusing). Record the proxy port in BOARD.md as `proxy_port:`. The proxy binds to the Docker bridge IP — only containers on the same Docker network can reach it. No token auth needed (CLIs cannot inject custom headers).
+**Credential handling for containers** depends on auth method:
+- **API key** (`ANTHROPIC_API_KEY` set): Use the credential proxy. Start it before launching agents. Containers get placeholder keys and proxy URL. Record proxy port in BOARD.md.
+- **OAuth subscription** (Claude Max/Pro, no API key): Mount the host credential file directly. Proxy is NOT needed for Claude agents (but still needed for Codex if using OpenAI API key). Copy credentials to readable temp: `cp ~/.claude/.credentials.json /tmp/.fb-claude-creds.json && chmod 644 /tmp/.fb-claude-creds.json`
 
-**Claude Code (container):**
+**Claude Code (container — OAuth mode):**
+```bash
+timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
+  -e FB_CLI=claude -e FB_YOLO=true \
+  -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \
+  --add-host=host.docker.internal:host-gateway \
+  -v $AGENT_DIR/.claude:/home/node/.claude \
+  -v /tmp/.fb-claude-creds.json:/home/node/.claude/.credentials.json:ro \
+  -v $PROJ:/workspace/project:ro \
+  -v /dev/null:/workspace/project/.env:ro \
+  -v $AGENT_DIR/CLAUDE.md:/workspace/agent/CLAUDE.md:ro \
+  -v $AGENT_DIR/inbox:/workspace/agent/inbox:ro \
+  -v $AGENT_DIR/outbox:/workspace/agent/outbox \
+  -v $AGENT_DIR/contexts:/workspace/agent/contexts:ro \
+  -v $AGENT_DIR/learnings:/workspace/agent/learnings \
+  frontierboard-agent:latest
+```
+
+**Claude Code (container — API key mode, with proxy):**
 ```bash
 timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_CLI=claude -e FB_YOLO=true \
