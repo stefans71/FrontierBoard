@@ -28,6 +28,15 @@ case "$AGENT_MODE" in
       exit 1
     fi
 
+    # C10: verify credential proxy is reachable before launching agent
+    PROXY_PORT="${FB_PROXY_PORT:-3002}"
+    if command -v curl >/dev/null 2>&1; then
+      if ! curl -sf "http://host.docker.internal:${PROXY_PORT}/health" >/dev/null 2>&1; then
+        echo "WARNING: Credential proxy not reachable at host.docker.internal:${PROXY_PORT}" >&2
+        echo "Agent may fail to authenticate. Check proxy is running on host." >&2
+      fi
+    fi
+
     case "$FB_CLI" in
       claude)
         FLAGS=""

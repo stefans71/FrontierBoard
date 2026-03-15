@@ -9,6 +9,10 @@
  * Multi-upstream: routes to Anthropic, OpenAI, or DashScope based on
  * x-fb-upstream header (primary) or request heuristics (fallback).
  *
+ * Security: binds to Docker bridge IP (not 0.0.0.0), so only containers on the
+ * same Docker network can reach it. No token auth needed — CLIs (Claude Code,
+ * Codex) cannot inject custom headers into their API requests.
+ *
  * Usage:
  *   node fb-credential-proxy.cjs                    # start on default port 3002
  *   FB_PROXY_PORT=3005 node fb-credential-proxy.cjs # custom port
@@ -20,6 +24,7 @@
  *   DASHSCOPE_API_KEY       — for Qwen agents (future)
  *   FB_PROXY_PORT           — port to listen on (default: 3002)
  *   FB_PROXY_HOST           — host to bind to (auto-detected: Docker bridge on Linux, 127.0.0.1 on macOS)
+ *   FB_PROXY_MAX_IDLE       — auto-shutdown after N seconds with no requests (default: 1800 = 30 min, 0 = disabled)
  */
 
 const http = require('http');
@@ -31,6 +36,7 @@ const { execSync } = require('child_process');
 const PORT = parseInt(process.env.FB_PROXY_PORT || process.env.PORT || '3002', 10);
 const PID_FILE = path.join(__dirname, '.fb-proxy.pid');
 const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_IDLE_SECONDS = parseInt(process.env.FB_PROXY_MAX_IDLE || '1800', 10); // 30 min default, 0 = disabled
 
 // --- Bind host detection (Q1) ---
 
@@ -184,13 +190,32 @@ function injectCredentials(headers, upstream, creds) {
 function startProxy() {
   const creds = loadCredentials();
 
+  // C8: idle timer for auto-shutdown
+  let idleTimer = null;
+
+  function resetIdleTimer() {
+    if (idleTimer) clearTimeout(idleTimer);
+    if (MAX_IDLE_SECONDS > 0) {
+      idleTimer = setTimeout(() => {
+        console.log(`No requests for ${MAX_IDLE_SECONDS}s — auto-shutting down.`);
+        server.close();
+        try { fs.unlinkSync(PID_FILE); } catch (e) {}
+        process.exit(0);
+      }, MAX_IDLE_SECONDS * 1000);
+      idleTimer.unref(); // don't keep process alive just for the timer
+    }
+  }
+
   const server = http.createServer((req, res) => {
-    // Q2: health check endpoint
+    // Health check — no auth required, does NOT reset idle timer (D3/D5)
     if (req.url === '/health' || req.url === '/') {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ service: 'fb-credential-proxy', port: PORT, pid: process.pid }));
       return;
     }
+
+    // Only real proxied requests reset the idle timer
+    resetIdleTimer();
 
     // Q5: body size limit
     let bodySize = 0;
@@ -235,9 +260,11 @@ function startProxy() {
         creds,
       );
 
+      // Strip internal and hop-by-hop headers before forwarding upstream
       delete headers['connection'];
       delete headers['keep-alive'];
       delete headers['transfer-encoding'];
+      delete headers['x-fb-upstream'];
 
       const upstreamReq = https.request(
         {
@@ -281,7 +308,9 @@ function startProxy() {
   server.listen(PORT, HOST, () => {
     console.log(`FrontierBoard credential proxy listening on ${HOST}:${PORT}`);
     console.log(`Upstreams: ${Object.keys(UPSTREAMS).join(', ')}`);
-    fs.writeFileSync(PID_FILE, process.pid.toString());
+    if (MAX_IDLE_SECONDS > 0) console.log(`Auto-shutdown after ${MAX_IDLE_SECONDS}s idle`);
+    fs.writeFileSync(PID_FILE, process.pid.toString(), { mode: 0o600 });
+    resetIdleTimer();
   });
 
   process.on('SIGTERM', () => {

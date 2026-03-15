@@ -24,13 +24,34 @@ If the user hasn't specified depth:
 
 ## Step 1: Read the Board
 
-Read `.board/board/BOARD.md` for agent list, invocation commands, isolation mode (`container` or `bare`), board user, parallelism pattern. Read `.board/board/DEFERRED_WORK.md` if it exists — include in every brief.
+Read `.board/board/BOARD.md` for agent list, invocation commands, isolation mode (`container` or `bare`), board user, parallelism pattern.
+
+**Deferred items are active context.** Read `.board/board/DEFERRED_WORK.md` if it exists and include the FULL contents in every agent brief. Frame them as: "Evaluate whether your review triggers any of these deferred items. If a trigger condition is met, promote to FIX NOW with evidence." Do NOT tell agents "do not re-raise" — that causes them to ignore deferred items entirely.
+
+### C3: Review lockfile
+
+Before starting, check for `$BOARD/.board/.review-lock`. If it exists:
+1. Read its contents (project name, PID, timestamp)
+2. Check if the PID is still alive (`kill -0 $PID`)
+3. If alive → error: "Review in progress for {project} (PID {pid}, started {timestamp}). Wait or kill it."
+4. If dead → remove stale lock and continue
+
+Create the lock at start: `echo "{project}|$$|$(date -Iseconds)" > $BOARD/.board/.review-lock`
+Remove the lock in Step 6 (Post-Review) — **including on error/cancel paths**.
+
+### Container mode setup
 
 If `isolation: container`:
 1. Verify the `frontierboard-agent` Docker image exists (`docker images frontierboard-agent`). If missing, build it: `$BOARD/container/build.sh`.
-2. Start the credential proxy: check PID file at `$BOARD/container/.fb-proxy.pid` — if it exists and `kill -0 $(cat PID_FILE)` succeeds, proxy is already running. Otherwise start it: `node $BOARD/container/fb-credential-proxy.cjs &`. Wait 1 second, verify PID file exists and process is alive. If startup fails, surface the error before launching agents.
-3. The proxy **must stay running across all review rounds** (Steps 2-5). Do NOT stop it between rounds.
-4. Stop the proxy in Step 6 (Post-Review) after all reports are collected: `node $BOARD/container/fb-credential-proxy.cjs --stop`. If the review is cancelled or fails partway, still stop the proxy.
+2. **C8: Stale proxy handling** — Check PID file at `$BOARD/container/.fb-proxy.pid`. If it exists:
+   - Read the PID and validate it's actually a proxy process (check `/proc/$PID/cmdline` for `fb-credential-proxy`)
+   - If valid proxy running → reuse it
+   - If stale PID (process dead or not a proxy) → remove PID file, start fresh
+   - If no PID file → start fresh
+3. Start proxy if needed: `node $BOARD/container/fb-credential-proxy.cjs &`. Wait 1 second, verify PID file exists and process is alive. If startup fails, surface the error before launching agents.
+4. **C7: Verify proxy health** — `curl -sf http://$PROXY_HOST:$PROXY_PORT/health` and confirm response contains `"service":"fb-credential-proxy"` and the expected port. If verification fails, abort with a clear error. Note: proxy binds to Docker bridge IP (e.g., 10.0.0.1), not localhost.
+5. The proxy **must stay running across all review rounds** (Steps 2-5). Do NOT stop it between rounds.
+6. Stop the proxy in Step 6 (Post-Review) after all reports are collected: `node $BOARD/container/fb-credential-proxy.cjs --stop`. If the review is cancelled or fails partway, still stop the proxy.
 
 ---
 
@@ -105,6 +126,10 @@ If all sign off → complete. If any block:
 ---
 
 ## Step 6: Post-Review
+
+**Always run this step, even on error/cancel.**
+
+Remove the review lockfile: `rm -f $BOARD/.board/.review-lock`
 
 If `isolation: container`, stop the credential proxy: `node $BOARD/container/fb-credential-proxy.cjs --stop`.
 

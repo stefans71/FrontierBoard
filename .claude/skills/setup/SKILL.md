@@ -25,6 +25,8 @@ If `$BOARD` is under `~/.frontierboard/`, this is a global install. In global mo
 - Each project gets its own orchestrator CLAUDE.md at `$BOARD/.board/projects/{project-name}/CLAUDE.md`
 - A global skill is installed at `~/.claude/skills/frontierboard/SKILL.md` so the user can type `/frontierboard` from any project session
 
+**C1: Use absolute paths everywhere.** `~` resolves differently per user (`/root` vs `/home/llmuser`). All BOARD.md, CLAUDE.md, skill files, and invocation commands must use absolute paths (e.g., `/root/.frontierboard/FrontierBoard`), never tilde notation.
+
 ---
 
 ## Hard-Won Knowledge
@@ -181,7 +183,7 @@ Write `$BOARD/.board/board/BOARD.md` — operational source of truth. Include: p
 
 Container agents don't need `unset CLAUDECODE` or a board user — the container is a fresh process with full isolation. Credentials are handled by the proxy — containers get placeholder keys and the proxy URL.
 
-**Credential proxy must be running** before launching container agents. The proxy port defaults to 3002 (or NanoClaw's 3001 if reusing). Record the proxy port in BOARD.md as `proxy_port:`.
+**Credential proxy must be running** before launching container agents. The proxy port defaults to 3002 (or NanoClaw's 3001 if reusing). Record the proxy port in BOARD.md as `proxy_port:`. The proxy binds to the Docker bridge IP — only containers on the same Docker network can reach it. No token auth needed (CLIs cannot inject custom headers).
 
 **Claude Code (container):**
 ```bash
@@ -190,6 +192,7 @@ timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \
   -e ANTHROPIC_BASE_URL=http://host.docker.internal:$PROXY_PORT \
   -e ANTHROPIC_API_KEY=placeholder \
+  -e FB_PROXY_PORT=$PROXY_PORT \
   --add-host=host.docker.internal:host-gateway \
   -v $PROJ:/workspace/project:ro \
   -v /dev/null:/workspace/project/.env:ro \
@@ -209,6 +212,7 @@ timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \
   -e OPENAI_BASE_URL=http://host.docker.internal:$PROXY_PORT \
   -e OPENAI_API_KEY=placeholder \
+  -e FB_PROXY_PORT=$PROXY_PORT \
   --add-host=host.docker.internal:host-gateway \
   -v $PROJ:/workspace/project:ro \
   -v /dev/null:/workspace/project/.env:ro \
@@ -249,7 +253,13 @@ If no board user, omit `sudo -u`. If supervised mode, omit `--dangerously-skip-p
 - `BOARD.md` — project-specific operational reference (same agents, but project-specific paths for briefs/reports)
 - `briefs/`, `reports/`, `contexts/` — per-project review artifacts
 
-Also create a global skill at `~/.claude/skills/frontierboard/SKILL.md` that lets the user type `/frontierboard` from any Claude session. The skill should: detect the current working directory as the project, shell out to `cd ~/.frontierboard/FrontierBoard && claude --dangerously-skip-permissions -p "review project at [cwd]"`, and report back the synthesis. If agents don't exist yet, the skill should tell the user to run setup first.
+Also create a global skill at `~/.claude/skills/frontierboard/SKILL.md` that lets the user type `/frontierboard` from any Claude session. The skill should:
+1. Detect the current working directory as the project path (use `$PWD`, passed explicitly — C6)
+2. Use **absolute paths** to the board install (e.g., `/root/.frontierboard/FrontierBoard`, NOT `~/.frontierboard/...`) — C1
+3. Shell out with `unset CLAUDECODE` before nested Claude invocation — C5: `bash -c 'unset CLAUDECODE && cd /absolute/path/to/FrontierBoard && claude --dangerously-skip-permissions -p "review project at /absolute/project/path"'`
+4. Pass the project path so the orchestrator can resolve `projects/{name}/` for per-project state — C6
+5. Report back the synthesis
+6. If agents don't exist yet, tell the user to run setup first
 
 When the user returns to review another project, `/setup` detects existing agents and only creates the new project entry — no need to rebuild the board.
 

@@ -9,6 +9,19 @@
 .board/board/CONSOLIDATION.md
 .board/bridge/
 
+# Per-project state (global mode)
+.board/projects/
+.board/CLAUDE.md
+.board/.review-lock
+
+# Proxy runtime files
+container/.fb-proxy.pid
+
+# Agent settings bubbles
+.board/board/*/.claude/
+.board/board/*/.codex/
+.board/board/*/.qwen/
+
 # Keep directory structure
 !board/.gitkeep
 
