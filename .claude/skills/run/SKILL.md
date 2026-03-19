@@ -48,10 +48,47 @@ If `isolation: container`:
    - If valid proxy running → reuse it
    - If stale PID (process dead or not a proxy) → remove PID file, start fresh
    - If no PID file → start fresh
-3. Start proxy if needed: `node $BOARD/container/fb-credential-proxy.cjs &`. Wait 1 second, verify PID file exists and process is alive. If startup fails, surface the error before launching agents.
+3. Start proxy if needed (only required for API-key-based agents — OAuth agents bypass the proxy): `node $BOARD/container/fb-credential-proxy.cjs &`. Wait 1 second, verify PID file exists and process is alive. If startup fails, surface the error before launching agents.
 4. **C7: Verify proxy health** — `curl -sf http://$PROXY_HOST:$PROXY_PORT/health` and confirm response contains `"service":"fb-credential-proxy"` and the expected port. If verification fails, abort with a clear error. Note: proxy binds to Docker bridge IP (e.g., 10.0.0.1), not localhost.
 5. The proxy **must stay running across all review rounds** (Steps 2-5). Do NOT stop it between rounds.
 6. Stop the proxy in Step 6 (Post-Review) after all reports are collected: `node $BOARD/container/fb-credential-proxy.cjs --stop`. If the review is cancelled or fails partway, still stop the proxy.
+
+### Container mode credentials (before EACH round)
+
+Credentials are extracted fresh before every round — tokens may have been refreshed between rounds.
+
+**Claude Code agents (OAuth/subscription):**
+```bash
+CLAUDE_TOKEN=$(node -e "
+  const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
+  if(!d.claudeAiOauth||!d.claudeAiOauth.accessToken){console.error('No Claude OAuth token found — run claude /login');process.exit(1)};
+  console.log(d.claudeAiOauth.accessToken)
+")
+```
+If extraction fails, abort with: "Claude OAuth token not found — run `claude /login` to authenticate."
+Pass to containers via `-e CLAUDE_CODE_OAUTH_TOKEN="$CLAUDE_TOKEN"`. Do NOT use the proxy for OAuth — the Anthropic API rejects third-party Bearer injection.
+
+**Claude Code agents (API key):** If `ANTHROPIC_API_KEY` is set in the environment, use the credential proxy instead (containers get `-e ANTHROPIC_BASE_URL=http://host.docker.internal:$PROXY_PORT -e ANTHROPIC_API_KEY=placeholder`).
+
+**Codex agents (ChatGPT OAuth):**
+```bash
+# Copy auth from the user that last authenticated Codex
+CODEX_AGENT_DIR=$BOARD/.board/board/$AGENT_NAME/.codex
+for src in /home/$BOARD_USER/.codex/auth.json $HOME/.codex/auth.json; do
+  [ -f "$src" ] && { cp "$src" "$CODEX_AGENT_DIR/auth.json"; chmod 600 "$CODEX_AGENT_DIR/auth.json"; break; }
+done
+```
+Do NOT proxy Codex requests — ChatGPT OAuth tokens are scoped for ChatGPT's internal API, not `api.openai.com`. The proxy rewrites to the public API where these tokens lack the `api.responses.write` scope. Let Codex handle its own auth natively.
+
+**Codex agents (API key):** If `OPENAI_API_KEY` is set, use the credential proxy instead (containers get `-e OPENAI_BASE_URL=http://host.docker.internal:$PROXY_PORT -e OPENAI_API_KEY=placeholder`).
+
+### Container mode cleanup (Step 6 addition)
+
+In Step 6 (Post-Review), after stopping the proxy, also clean up copied credentials:
+```bash
+# Remove copied Codex auth files (contain OAuth tokens)
+rm -f $BOARD/.board/board/*/. codex/auth.json
+```
 
 ---
 
@@ -131,7 +168,12 @@ If all sign off → complete. If any block:
 
 Remove the review lockfile: `rm -f $BOARD/.board/.review-lock`
 
-If `isolation: container`, stop the credential proxy: `node $BOARD/container/fb-credential-proxy.cjs --stop`.
+If `isolation: container`:
+1. Stop the credential proxy: `node $BOARD/container/fb-credential-proxy.cjs --stop`
+2. Clean up copied credential files (contain OAuth tokens — must not persist):
+   ```bash
+   rm -f $BOARD/.board/board/*/.codex/auth.json
+   ```
 
 Append to `.board/board/REVIEW-LOG.md`: what was reviewed, date, mode, rounds, agents, FIX NOW table, DEFER table with triggers, INFO items, key decisions.
 
