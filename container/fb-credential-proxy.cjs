@@ -13,14 +13,22 @@
  * same Docker network can reach it. No token auth needed — CLIs (Claude Code,
  * Codex) cannot inject custom headers into their API requests.
  *
+ * Credential resolution (per-request, checked in order):
+ *   1. Environment variables (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)
+ *   2. CLI credential files (read on each request so refreshed tokens are picked up):
+ *      - Claude Code: ~/.claude/.credentials.json (OAuth accessToken)
+ *      - Codex: ~/.codex/auth.json (ChatGPT OAuth access_token)
+ *   This means OAuth users (Max plan, Teams) don't need API keys — the proxy
+ *   reads the token the orchestrator's CLI session keeps fresh.
+ *
  * Usage:
  *   node fb-credential-proxy.cjs                    # start on default port 3002
  *   FB_PROXY_PORT=3005 node fb-credential-proxy.cjs # custom port
  *   node fb-credential-proxy.cjs --stop             # stop a running proxy
  *
  * Environment variables (read from host, never passed to containers):
- *   ANTHROPIC_API_KEY       — for Claude Code agents
- *   OPENAI_API_KEY          — for Codex agents
+ *   ANTHROPIC_API_KEY       — for Claude Code agents (takes precedence over OAuth file)
+ *   OPENAI_API_KEY          — for Codex agents (takes precedence over OAuth file)
  *   DASHSCOPE_API_KEY       — for Qwen agents (future)
  *   FB_PROXY_PORT           — port to listen on (default: 3002)
  *   FB_PROXY_HOST           — host to bind to (auto-detected: Docker bridge on Linux, 127.0.0.1 on macOS)
@@ -93,34 +101,102 @@ if (process.argv.includes('--stop')) {
 }
 
 // --- Credential loading ---
+// Credentials are resolved per-request so OAuth token refreshes are picked up.
+// Priority: env var > CLI credential file > empty (fail at proxy time)
 
-function loadCredentials() {
-  const creds = {
-    anthropic: process.env.ANTHROPIC_API_KEY || '',
-    openai: process.env.OPENAI_API_KEY || '',
-    dashscope: process.env.DASHSCOPE_API_KEY || '',
-  };
+const HOME = process.env.HOME || '/root';
+const CLAUDE_CRED_FILE = path.join(HOME, '.claude', '.credentials.json');
+const CODEX_CRED_FILE = path.join(HOME, '.codex', 'auth.json');
 
-  if (!creds.anthropic) {
-    const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN || process.env.ANTHROPIC_AUTH_TOKEN || '';
-    if (oauthToken) {
-      creds.anthropic = oauthToken;
-      creds._anthropicAuthMode = 'oauth';
+function readClaudeOAuthToken() {
+  try {
+    const data = JSON.parse(fs.readFileSync(CLAUDE_CRED_FILE, 'utf8'));
+    const oauth = data.claudeAiOauth;
+    if (oauth && oauth.accessToken) {
+      // C1: Reject expired tokens instead of forwarding them upstream
+      if (oauth.expiresAt && Date.now() > oauth.expiresAt - 60000) {
+        console.error('REJECTED: Claude OAuth token expired — run "claude /login" on the host to refresh');
+        return '';
+      }
+      return oauth.accessToken;
+    }
+  } catch (e) {
+    // File doesn't exist or isn't readable — that's fine, fall through
+  }
+  return '';
+}
+
+function readCodexOAuthToken() {
+  try {
+    const data = JSON.parse(fs.readFileSync(CODEX_CRED_FILE, 'utf8'));
+    if (data.tokens && data.tokens.access_token) {
+      return data.tokens.access_token;
+    }
+    if (data.OPENAI_API_KEY) {
+      return data.OPENAI_API_KEY;
+    }
+  } catch (e) {
+    // File doesn't exist or isn't readable — that's fine, fall through
+  }
+  return '';
+}
+
+// C6: Single shared credential resolution — called by both startup validation and per-request
+function resolveCredentials() {
+  // Anthropic: env var > env OAuth token > credential file
+  let anthropic = process.env.ANTHROPIC_API_KEY || '';
+  let anthropicAuthMode = anthropic ? 'apikey' : '';
+
+  if (!anthropic) {
+    const envOauth = process.env.CLAUDE_CODE_OAUTH_TOKEN || process.env.ANTHROPIC_AUTH_TOKEN || '';
+    if (envOauth) {
+      anthropic = envOauth;
+      anthropicAuthMode = 'oauth';
     }
   }
 
+  if (!anthropic) {
+    anthropic = readClaudeOAuthToken();
+    if (anthropic) anthropicAuthMode = 'oauth';
+  }
+
+  // OpenAI: env var > codex credential file
+  let openai = process.env.OPENAI_API_KEY || '';
+  if (!openai) {
+    openai = readCodexOAuthToken();
+  }
+
+  return {
+    anthropic,
+    openai,
+    dashscope: process.env.DASHSCOPE_API_KEY || '',
+    _anthropicAuthMode: anthropicAuthMode,
+  };
+}
+
+// Startup validation — exits if no credentials found
+function loadCredentials() {
+  const creds = resolveCredentials();
   const available = Object.entries(creds)
     .filter(([k, v]) => v && !k.startsWith('_'))
     .map(([k]) => k);
 
   if (available.length === 0) {
-    console.error('ERROR: No API keys found in environment.');
-    console.error('Set at least one of: ANTHROPIC_API_KEY, OPENAI_API_KEY, DASHSCOPE_API_KEY');
+    console.error('ERROR: No credentials found.');
+    console.error('The proxy checks (in order):');
+    console.error('  1. Environment variables: ANTHROPIC_API_KEY, OPENAI_API_KEY, DASHSCOPE_API_KEY');
+    console.error(`  2. Claude Code OAuth: ${CLAUDE_CRED_FILE}`);
+    console.error(`  3. Codex OAuth: ${CODEX_CRED_FILE}`);
+    console.error('Run "claude /login" or "codex" to authenticate, or set an API key.');
     process.exit(1);
   }
 
-  console.log(`Credentials loaded: ${available.join(', ')}`);
-  return creds;
+  return { creds, available };
+}
+
+// Per-request credential reading (tokens get refreshed by orchestrator between rounds)
+function getCredentials() {
+  return resolveCredentials();
 }
 
 // --- Upstream routing (Q2: no default, return null for unrecognized) ---
@@ -141,10 +217,16 @@ function detectUpstream(req) {
 
   const authHeader = req.headers['authorization'] || '';
   const userAgent = req.headers['user-agent'] || '';
+
+  // OpenAI/Codex: detect by user-agent (codex_exec, openai-*) — most reliable
+  if (userAgent.toLowerCase().includes('codex') || userAgent.toLowerCase().includes('openai')) {
+    return 'openai';
+  }
+
+  // OpenAI: Bearer auth + known URL paths (with or without /v1/ prefix)
   if (authHeader.startsWith('Bearer ') &&
-      (userAgent.toLowerCase().includes('openai') ||
-       req.url.includes('/v1/chat/completions') || req.url.includes('/v1/responses') ||
-       req.url.includes('/v1/models'))) {
+      (req.url.includes('/chat/completions') || req.url.includes('/responses') ||
+       req.url.includes('/models') || req.url.startsWith('/v1/'))) {
     return 'openai';
   }
 
@@ -152,7 +234,21 @@ function detectUpstream(req) {
     return 'dashscope';
   }
 
+  // Fallback: if we only have one upstream with credentials, use it
+  // (covers Codex hitting unusual paths like /v1/engines or metadata endpoints)
+  if (authHeader.startsWith('Bearer ')) {
+    const creds = getCredentials();
+    const available = ['anthropic', 'openai', 'dashscope'].filter(k => creds[k]);
+    // If only openai has creds and request has Bearer, it's almost certainly Codex
+    if (available.length === 1) return available[0];
+    // If anthropic is from OAuth (not API key), Bearer likely means openai
+    if (creds._anthropicAuthMode === 'oauth' && creds.openai) return 'openai';
+  }
+
   // Q2: reject unrecognized requests instead of defaulting
+  // C3: log auth type/length only, never credential values
+  const authType = authHeader ? (authHeader.startsWith('Bearer ') ? 'Bearer' : 'Other') : 'None';
+  console.log(`Unrecognized upstream — URL: ${req.url}, UA: ${userAgent}, Auth: ${authType} (${authHeader.length} chars)`);
   return null;
 }
 
@@ -188,7 +284,9 @@ function injectCredentials(headers, upstream, creds) {
 // --- Proxy server ---
 
 function startProxy() {
-  const creds = loadCredentials();
+  // Validate at least one credential source exists at startup
+  const { available } = loadCredentials();
+  console.log(`Credentials loaded: ${available.join(', ')}`);
 
   // C8: idle timer for auto-shutdown
   let idleTimer = null;
@@ -209,8 +307,12 @@ function startProxy() {
   const server = http.createServer((req, res) => {
     // Health check — no auth required, does NOT reset idle timer (D3/D5)
     if (req.url === '/health' || req.url === '/') {
+      const creds = getCredentials();
+      const sources = Object.entries(creds)
+        .filter(([k, v]) => v && !k.startsWith('_'))
+        .map(([k]) => k);
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ service: 'fb-credential-proxy', port: PORT, pid: process.pid }));
+      res.end(JSON.stringify({ service: 'fb-credential-proxy', port: PORT, pid: process.pid, credentials: sources }));
       return;
     }
 
@@ -247,6 +349,9 @@ function startProxy() {
         return;
       }
 
+      // Re-read credentials on each request (OAuth tokens get refreshed)
+      const creds = getCredentials();
+
       if (!creds[upstream]) {
         res.writeHead(401);
         res.end(`No ${upstream} credentials configured on the proxy host`);
@@ -266,11 +371,18 @@ function startProxy() {
       delete headers['transfer-encoding'];
       delete headers['x-fb-upstream'];
 
+      // Normalize path: some CLIs (Codex 0.115+) send /responses instead of /v1/responses.
+      // OpenAI's API requires the /v1/ prefix.
+      let upstreamPath = req.url;
+      if (upstream === 'openai' && !upstreamPath.startsWith('/v1/') && upstreamPath.startsWith('/')) {
+        upstreamPath = '/v1' + upstreamPath;
+      }
+
       const upstreamReq = https.request(
         {
           hostname: target.hostname,
           port: target.port,
-          path: req.url,
+          path: upstreamPath,
           method: req.method,
           headers,
         },
