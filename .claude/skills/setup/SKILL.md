@@ -57,6 +57,10 @@ These are operational facts Claude cannot derive from general training. Never re
 
 12. **Codex ChatGPT OAuth needs native auth, not proxy** — ChatGPT OAuth tokens are scoped for ChatGPT's internal API, not `api.openai.com`. The proxy rewrites to the public API where these tokens lack `api.responses.write` scope. Copy `auth.json` into the agent's `.codex/` dir (chmod 600) and let Codex handle routing natively. Clean up the copied file after the review.
 
+13. **Conditional `.env` masking** — The `-v /dev/null:/workspace/project/.env:ro` mount masks project secrets inside containers. But if the project has no `.env` file, Docker fails because it can't create a mountpoint inside a read-only filesystem mount. Always guard with `[ -f "$PROJ/.env" ]` before adding this mount.
+
+14. **Chown CLI settings dirs for container agents** — Container agents (uid 1000) need write access to their CLI settings directories (`.codex/` for Codex session state, `.claude/` for Claude). The chown step must include these alongside `outbox/` and `learnings/`.
+
 ---
 
 ## Step 1: Welcome and Detect
@@ -111,7 +115,7 @@ Record the choice. Write `isolation: container` or `isolation: bare` in BOARD.md
 - Verify the credential proxy script exists at `$BOARD/container/fb-credential-proxy.cjs` (it runs during `/run`, not during setup)
 - **Skip board user creation** — the container IS the sandbox. No `llmuser`, no `sudo -u`, no chown needed.
 - **Firewall:** If UFW is active, allow Docker containers to reach the proxy: `ufw allow from <docker-subnet> to any port <proxy-port>` (e.g., `ufw allow from 10.0.0.0/24 to any port 3002`). Without this, containers can't reach the proxy even though it binds to the bridge IP.
-- **Outbox permissions:** Container agents run as `node` (uid 1000). After creating agent directories, `chown -R 1000:1000 $BOARD/.board/board/*/outbox $BOARD/.board/board/*/learnings` so agents can write reports.
+- **Outbox permissions:** Container agents run as `node` (uid 1000). After creating agent directories, `chown -R 1000:1000 $BOARD/.board/board/*/outbox $BOARD/.board/board/*/learnings` so agents can write reports. Also chown CLI settings directories that agents need write access to: `chown -R 1000:1000 $BOARD/.board/board/*/.codex $BOARD/.board/board/*/.claude 2>/dev/null` (Codex writes session state to `.codex/`, Claude writes to `.claude/`).
 - **Credential handling:** Depends on auth method (detected during Step 5):
   - **API key** (`ANTHROPIC_API_KEY` set): Use the credential proxy for all agents. Containers get placeholder keys and the proxy URL.
   - **OAuth subscription** (Claude Max/Pro, no API key): Pass `CLAUDE_CODE_OAUTH_TOKEN` env var to Claude containers. The orchestrator reads the current access token from `~/.claude/.credentials.json` before each round and passes it. Token lifetime is 7+ hours; review rounds take ~15 min — no refresh needed inside containers. The proxy is still used for Codex agents (reads from `~/.codex/auth.json`).
@@ -215,7 +219,7 @@ timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   --add-host=host.docker.internal:host-gateway \
   -v $AGENT_DIR/.claude:/home/node/.claude \
   -v $PROJ:/workspace/project:ro \
-  -v /dev/null:/workspace/project/.env:ro \
+  $( [ -f "$PROJ/.env" ] && echo "-v /dev/null:/workspace/project/.env:ro" ) \
   -v $AGENT_DIR/CLAUDE.md:/workspace/agent/CLAUDE.md:ro \
   -v $AGENT_DIR/inbox:/workspace/agent/inbox:ro \
   -v $AGENT_DIR/outbox:/workspace/agent/outbox \
@@ -234,7 +238,7 @@ timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_PROXY_PORT=$PROXY_PORT \
   --add-host=host.docker.internal:host-gateway \
   -v $PROJ:/workspace/project:ro \
-  -v /dev/null:/workspace/project/.env:ro \
+  $( [ -f "$PROJ/.env" ] && echo "-v /dev/null:/workspace/project/.env:ro" ) \
   -v $AGENT_DIR/CLAUDE.md:/workspace/agent/CLAUDE.md:ro \
   -v $AGENT_DIR/inbox:/workspace/agent/inbox:ro \
   -v $AGENT_DIR/outbox:/workspace/agent/outbox \
@@ -255,7 +259,7 @@ timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \
   --add-host=host.docker.internal:host-gateway \
   -v $PROJ:/workspace/project:ro \
-  -v /dev/null:/workspace/project/.env:ro \
+  $( [ -f "$PROJ/.env" ] && echo "-v /dev/null:/workspace/project/.env:ro" ) \
   -v $AGENT_DIR/CLAUDE.md:/workspace/agent/CLAUDE.md:ro \
   -v $AGENT_DIR/inbox:/workspace/agent/inbox:ro \
   -v $AGENT_DIR/outbox:/workspace/agent/outbox \
@@ -276,7 +280,7 @@ timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_PROXY_PORT=$PROXY_PORT \
   --add-host=host.docker.internal:host-gateway \
   -v $PROJ:/workspace/project:ro \
-  -v /dev/null:/workspace/project/.env:ro \
+  $( [ -f "$PROJ/.env" ] && echo "-v /dev/null:/workspace/project/.env:ro" ) \
   -v $AGENT_DIR/CLAUDE.md:/workspace/agent/CLAUDE.md:ro \
   -v $AGENT_DIR/inbox:/workspace/agent/inbox:ro \
   -v $AGENT_DIR/outbox:/workspace/agent/outbox \

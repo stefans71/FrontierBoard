@@ -115,7 +115,7 @@ docker run -i --rm --name fb-pragmatist-$(date +%s) \
   -e ANTHROPIC_API_KEY=placeholder \
   --add-host=host.docker.internal:host-gateway \
   -v $PROJ:/workspace/project:ro \
-  -v /dev/null:/workspace/project/.env:ro \
+  $( [ -f "$PROJ/.env" ] && echo "-v /dev/null:/workspace/project/.env:ro" ) \
   -v $AGENT/inbox:/workspace/agent/inbox:ro \
   -v $AGENT/outbox:/workspace/agent/outbox \
   -v $AGENT/CLAUDE.md:/workspace/agent/CLAUDE.md:ro \

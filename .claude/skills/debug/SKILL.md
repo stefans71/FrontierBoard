@@ -346,6 +346,8 @@ ls -la $BOARD/.board/board/*/outbox/
 chmod 777 $BOARD/.board/board/*/outbox $BOARD/.board/board/*/learnings
 # Or set ownership to uid 1000:
 chown -R 1000:1000 $BOARD/.board/board/*/outbox $BOARD/.board/board/*/learnings
+# Also chown CLI settings dirs that agents need write access to
+chown -R 1000:1000 $BOARD/.board/board/*/.codex $BOARD/.board/board/*/.claude 2>/dev/null
 ```
 
 ### 7.2 Bare Mode: Board User Can't Access Agent Dirs
@@ -419,7 +421,7 @@ timeout 120 docker run -i --rm --name fb-smoke-test \
   -e CLAUDE_CODE_OAUTH_TOKEN="$CLAUDE_TOKEN" \
   --add-host=host.docker.internal:host-gateway \
   -v $PROJ:/workspace/project:ro \
-  -v /dev/null:/workspace/project/.env:ro \
+  $( [ -f "$PROJ/.env" ] && echo "-v /dev/null:/workspace/project/.env:ro" ) \
   -v $AGENT_DIR/CLAUDE.md:/workspace/agent/CLAUDE.md:ro \
   -v $AGENT_DIR/inbox:/workspace/agent/inbox:ro \
   -v $AGENT_DIR/outbox:/workspace/agent/outbox \
