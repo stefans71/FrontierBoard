@@ -18,8 +18,11 @@
  *   2. CLI credential files (read on each request so refreshed tokens are picked up):
  *      - Claude Code: ~/.claude/.credentials.json (OAuth accessToken)
  *      - Codex: ~/.codex/auth.json (ChatGPT OAuth access_token)
- *   This means OAuth users (Max plan, Teams) don't need API keys — the proxy
- *   reads the token the orchestrator's CLI session keeps fresh.
+ *   Note: Claude OAuth users bypass this proxy entirely (use CLAUDE_CODE_OAUTH_TOKEN
+ *   env var). Codex ChatGPT OAuth users also bypass the proxy (native auth with
+ *   copied auth.json). This proxy is primarily for API key users and Codex with
+ *   OPENAI_API_KEY. The file-reading fallback exists for OpenAI/Codex API key
+ *   detection only.
  *
  * Usage:
  *   node fb-credential-proxy.cjs                    # start on default port 3002
@@ -261,8 +264,9 @@ function injectCredentials(headers, upstream, creds) {
     case 'anthropic':
       delete injected['x-api-key'];
       if (creds._anthropicAuthMode === 'oauth') {
-        delete injected['authorization'];
-        injected['authorization'] = `Bearer ${creds.anthropic}`;
+        // C4: Anthropic API rejects third-party OAuth Bearer injection.
+        // Return null to signal the caller to reject this request.
+        return null;
       } else {
         injected['x-api-key'] = creds.anthropic;
       }
@@ -364,6 +368,13 @@ function startProxy() {
         upstream,
         creds,
       );
+
+      // C4: injectCredentials returns null when Anthropic OAuth is detected (known-broken path)
+      if (!headers) {
+        res.writeHead(400, { 'content-type': 'text/plain' });
+        res.end('Cannot proxy OAuth tokens to Anthropic — use CLAUDE_CODE_OAUTH_TOKEN env var instead. See Hard-Won Knowledge #10.');
+        return;
+      }
 
       // Strip internal and hop-by-hop headers before forwarding upstream
       delete headers['connection'];

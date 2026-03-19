@@ -49,7 +49,7 @@ If `isolation: container`:
    - If stale PID (process dead or not a proxy) → remove PID file, start fresh
    - If no PID file → start fresh
 3. Start proxy if needed (only required for API-key-based agents — OAuth agents bypass the proxy): `node $BOARD/container/fb-credential-proxy.cjs &`. Wait 1 second, verify PID file exists and process is alive. If startup fails, surface the error before launching agents.
-4. **C7: Verify proxy health** — `curl -sf http://$PROXY_HOST:$PROXY_PORT/health` and confirm response contains `"service":"fb-credential-proxy"` and the expected port. If verification fails, abort with a clear error. Note: proxy binds to Docker bridge IP (e.g., 10.0.0.1), not localhost.
+4. **C7: Verify proxy health** (only if proxy was started in Step 3) — `curl -sf http://$PROXY_HOST:$PROXY_PORT/health` and confirm response contains `"service":"fb-credential-proxy"` and the expected port. If verification fails, abort with a clear error. Note: proxy binds to Docker bridge IP (e.g., 10.0.0.1), not localhost. **Skip this step entirely for pure-OAuth setups where no proxy was started.**
 5. The proxy **must stay running across all review rounds** (Steps 2-5). Do NOT stop it between rounds.
 6. Stop the proxy in Step 6 (Post-Review) after all reports are collected: `node $BOARD/container/fb-credential-proxy.cjs --stop`. If the review is cancelled or fails partway, still stop the proxy.
 
@@ -81,14 +81,6 @@ done
 Do NOT proxy Codex requests — ChatGPT OAuth tokens are scoped for ChatGPT's internal API, not `api.openai.com`. The proxy rewrites to the public API where these tokens lack the `api.responses.write` scope. Let Codex handle its own auth natively.
 
 **Codex agents (API key):** If `OPENAI_API_KEY` is set, use the credential proxy instead (containers get `-e OPENAI_BASE_URL=http://host.docker.internal:$PROXY_PORT -e OPENAI_API_KEY=placeholder`).
-
-### Container mode cleanup (Step 6 addition)
-
-In Step 6 (Post-Review), after stopping the proxy, also clean up copied credentials:
-```bash
-# Remove copied Codex auth files (contain OAuth tokens)
-rm -f $BOARD/.board/board/*/. codex/auth.json
-```
 
 ---
 
