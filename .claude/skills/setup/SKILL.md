@@ -51,6 +51,12 @@ These are operational facts Claude cannot derive from general training. Never re
 
 9. **Agent invocation must read CLAUDE.md** — All invocation commands must tell the agent to read its CLAUDE.md first, then read inbox files. Example: `"read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md"`. Agents without CLAUDE.md instructions lose their identity.
 
+10. **Don't proxy OAuth tokens for Anthropic** — The Anthropic API rejects OAuth tokens injected as Bearer headers by third parties ("OAuth authentication is currently not supported"). Claude Code handles OAuth internally. Use `CLAUDE_CODE_OAUTH_TOKEN` env var instead of the proxy for OAuth users.
+
+11. **Don't mount `~/.claude/.credentials.json` into containers** — The file is root-owned with mode 600. The container's `node` user (uid 1000) can't read it. Use the `CLAUDE_CODE_OAUTH_TOKEN` env var.
+
+12. **Codex ChatGPT OAuth needs native auth, not proxy** — ChatGPT OAuth tokens are scoped for ChatGPT's internal API, not `api.openai.com`. The proxy rewrites to the public API where these tokens lack `api.responses.write` scope. Copy `auth.json` into the agent's `.codex/` dir (chmod 600) and let Codex handle routing natively. Clean up the copied file after the review.
+
 ---
 
 ## Step 1: Welcome and Detect
@@ -106,7 +112,10 @@ Record the choice. Write `isolation: container` or `isolation: bare` in BOARD.md
 - **Skip board user creation** — the container IS the sandbox. No `llmuser`, no `sudo -u`, no chown needed.
 - **Firewall:** If UFW is active, allow Docker containers to reach the proxy: `ufw allow from <docker-subnet> to any port <proxy-port>` (e.g., `ufw allow from 10.0.0.0/24 to any port 3002`). Without this, containers can't reach the proxy even though it binds to the bridge IP.
 - **Outbox permissions:** Container agents run as `node` (uid 1000). After creating agent directories, `chown -R 1000:1000 $BOARD/.board/board/*/outbox $BOARD/.board/board/*/learnings` so agents can write reports.
-- **Credential mounting:** Claude Code with OAuth subscriptions (Max/Pro) needs the host credential file mounted into the container. Copy `~/.claude/.credentials.json` to a readable temp file and mount it: `-v /tmp/.fb-claude-creds.json:/home/node/.claude/.credentials.json:ro`. The credential proxy does NOT work with OAuth tokens — it only works with `ANTHROPIC_API_KEY`. If the user has an API key, use the proxy. If OAuth only, mount credentials directly.
+- **Credential handling:** Depends on auth method (detected during Step 5):
+  - **API key** (`ANTHROPIC_API_KEY` set): Use the credential proxy for all agents. Containers get placeholder keys and the proxy URL.
+  - **OAuth subscription** (Claude Max/Pro, no API key): Pass `CLAUDE_CODE_OAUTH_TOKEN` env var to Claude containers. The orchestrator reads the current access token from `~/.claude/.credentials.json` before each round and passes it. Token lifetime is 7+ hours; review rounds take ~15 min — no refresh needed inside containers. The proxy is still used for Codex agents (reads from `~/.codex/auth.json`).
+  - **Important:** Do NOT mount `~/.claude/.credentials.json` directly — it's owned by root (mode 600) and the container's `node` user (uid 1000) can't read it. Do NOT use the proxy with OAuth tokens — the Anthropic API rejects OAuth tokens injected as Bearer headers by third parties.
 
 **If bare mode:**
 - If **not root**: note the choice and move on.
@@ -184,20 +193,27 @@ Write `$BOARD/.board/board/BOARD.md` — operational source of truth. Include: p
 
 ### Container mode invocation templates
 
-Container agents don't need `unset CLAUDECODE` or a board user — the container is a fresh process with full isolation. Credentials are handled by the proxy — containers get placeholder keys and the proxy URL.
+Container agents don't need `unset CLAUDECODE` or a board user — the container is a fresh process with full isolation.
 
-**Credential handling for containers** depends on auth method:
-- **API key** (`ANTHROPIC_API_KEY` set): Use the credential proxy. Start it before launching agents. Containers get placeholder keys and proxy URL. Record proxy port in BOARD.md.
-- **OAuth subscription** (Claude Max/Pro, no API key): Mount the host credential file directly. Proxy is NOT needed for Claude agents (but still needed for Codex if using OpenAI API key). Copy credentials to readable temp: `cp ~/.claude/.credentials.json /tmp/.fb-claude-creds.json && chmod 644 /tmp/.fb-claude-creds.json`
+**Credential handling for containers** depends on auth method — detected during Step 5:
+- **API key** (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY` set): Use the credential proxy. Containers get placeholder keys and proxy URL.
+- **Claude OAuth** (Max/Pro, no API key): Pass `CLAUDE_CODE_OAUTH_TOKEN` env var. No proxy needed. Do NOT mount `~/.claude/.credentials.json` (root-owned mode 600, container uid 1000 can't read). Do NOT proxy OAuth tokens (Anthropic API rejects third-party Bearer injection).
+- **Codex ChatGPT OAuth** (no `OPENAI_API_KEY`): Copy host auth file into agent's `.codex/` dir with mode 600. Do NOT proxy — ChatGPT OAuth tokens are scoped for ChatGPT's internal API, not `api.openai.com`. Let Codex handle its own auth natively.
 
 **Claude Code (container — OAuth mode):**
 ```bash
+# Extract token using node (guaranteed available — FB requires Node.js)
+CLAUDE_TOKEN=$(node -e "
+  const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
+  if(!d.claudeAiOauth||!d.claudeAiOauth.accessToken){console.error('No Claude OAuth token — run claude /login');process.exit(1)};
+  console.log(d.claudeAiOauth.accessToken)
+")
 timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_CLI=claude -e FB_YOLO=true \
   -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \
+  -e CLAUDE_CODE_OAUTH_TOKEN="$CLAUDE_TOKEN" \
   --add-host=host.docker.internal:host-gateway \
   -v $AGENT_DIR/.claude:/home/node/.claude \
-  -v /tmp/.fb-claude-creds.json:/home/node/.claude/.credentials.json:ro \
   -v $PROJ:/workspace/project:ro \
   -v /dev/null:/workspace/project/.env:ro \
   -v $AGENT_DIR/CLAUDE.md:/workspace/agent/CLAUDE.md:ro \
@@ -228,7 +244,29 @@ timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   frontierboard-agent:latest
 ```
 
-**Codex (container):**
+**Codex (container — ChatGPT OAuth, native auth):**
+```bash
+# Copy auth from whichever user last authenticated Codex (board user preferred)
+for src in /home/$BOARD_USER/.codex/auth.json $HOME/.codex/auth.json; do
+  [ -f "$src" ] && { cp "$src" $AGENT_DIR/.codex/auth.json; chmod 600 $AGENT_DIR/.codex/auth.json; break; }
+done
+timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
+  -e FB_CLI=codex -e FB_YOLO=true \
+  -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \
+  --add-host=host.docker.internal:host-gateway \
+  -v $PROJ:/workspace/project:ro \
+  -v /dev/null:/workspace/project/.env:ro \
+  -v $AGENT_DIR/CLAUDE.md:/workspace/agent/CLAUDE.md:ro \
+  -v $AGENT_DIR/inbox:/workspace/agent/inbox:ro \
+  -v $AGENT_DIR/outbox:/workspace/agent/outbox \
+  -v $AGENT_DIR/contexts:/workspace/agent/contexts:ro \
+  -v $AGENT_DIR/.codex:/home/node/.codex \
+  frontierboard-agent:latest
+# Clean up copied auth after review (contains OAuth token)
+rm -f $AGENT_DIR/.codex/auth.json
+```
+
+**Codex (container — API key mode, with proxy):**
 ```bash
 timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_CLI=codex -e FB_YOLO=true \
@@ -243,11 +281,11 @@ timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -v $AGENT_DIR/inbox:/workspace/agent/inbox:ro \
   -v $AGENT_DIR/outbox:/workspace/agent/outbox \
   -v $AGENT_DIR/contexts:/workspace/agent/contexts:ro \
-  -v $AGENT_DIR/.codex:/home/node/.codex:ro \
+  -v $AGENT_DIR/.codex:/home/node/.codex \
   frontierboard-agent:latest
 ```
 
-Containers get `placeholder` as the API key and the proxy URL as the base URL. The proxy intercepts requests and injects real credentials. **Real keys never enter the container** — not in env, files, or `/proc`. If supervised mode, set `FB_YOLO=false`.
+**Notes:** `.codex/` must be mounted read-write (Codex writes session state). Config.toml must use `model` as a top-level string, not a `[model]` table (Codex 0.115+ rejects the table format). If supervised mode, set `FB_YOLO=false`.
 
 ### Bare mode invocation templates
 
