@@ -26,7 +26,17 @@ If the user hasn't specified depth:
 
 Read `.board/board/BOARD.md` for agent list, invocation commands, isolation mode (`container` or `bare`), board user, parallelism pattern.
 
-**Deferred items are active context.** Read `.board/board/DEFERRED_WORK.md` if it exists and include the FULL contents in every agent brief. Frame them as: "Evaluate whether your review triggers any of these deferred items. If a trigger condition is met, promote to FIX NOW with evidence." Do NOT tell agents "do not re-raise" — that causes them to ignore deferred items entirely.
+**Agent count validation:** For Standard mode, verify at least 3 agents are configured. If fewer than 3, warn the user:
+
+> Only [N] agent(s) configured. Standard reviews need 3+ for meaningful consensus. Continue with reduced coverage, or add agents with `/new-agent`?
+
+Quick mode (1 agent) is exempt from this check.
+
+**Deferred items are active context.** Check two sources for deferred items:
+1. `tasks.json` — look for tasks with `"status": "deferred"`. Include their title, description, trigger condition, and severity.
+2. `.board/board/DEFERRED_WORK.md` — if it exists (legacy), include its FULL contents.
+
+Include all deferred items in every agent brief. Frame them as: "Evaluate whether your review triggers any of these deferred items. If a trigger condition is met, promote to FIX NOW with evidence." Do NOT tell agents "do not re-raise" — that causes them to ignore deferred items entirely.
 
 ### C3: Review lockfile
 
@@ -182,7 +192,7 @@ If `isolation: container`:
 
 Append to `.board/board/REVIEW-LOG.md`: what was reviewed, date, mode, rounds, agents, FIX NOW table, DEFER table with triggers, INFO items, key decisions.
 
-Create/update `.board/board/DEFERRED_WORK.md` with any new DEFER items. Update resolved items.
+For any new DEFER items: add them to `tasks.json` with `"status": "deferred"` and a `"trigger"` field describing the promotion condition. Create a corresponding YAML file at `docs/tasks/{task-id}.yaml` if the item warrants detailed tracking. Also update `.board/board/DEFERRED_WORK.md` (legacy format) for backward compatibility with existing board setups.
 
 Present summary: FIX NOW list, DEFER list, sign-off status.
 

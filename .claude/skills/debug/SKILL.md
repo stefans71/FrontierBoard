@@ -86,7 +86,13 @@ Orchestrator (host)                         Orchestrator (host)
 ```bash
 # Is the OAuth token being passed?
 # The orchestrator should extract it before each round:
-python3 -c "import json; d=json.load(open('$HOME/.claude/.credentials.json')); print('Token length:', len(d['claudeAiOauth']['accessToken'])); print('Expires in:', round((d['claudeAiOauth']['expiresAt'] - __import__('time').time()*1000) / 60000), 'minutes')"
+node -e "
+  const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
+  const o=d.claudeAiOauth||{};
+  if(!o.accessToken){console.error('No Claude OAuth token — run claude /login');process.exit(1)};
+  console.log('Token length:', o.accessToken.length);
+  console.log('Expires in:', Math.round((o.expiresAt - Date.now()) / 60000), 'minutes');
+"
 ```
 
 If the token exists and isn't expired, verify the container receives it:
@@ -412,7 +418,11 @@ echo "Smoke test context." > $AGENT_DIR/inbox/context.md
 rm -f $AGENT_DIR/outbox/report.md
 
 # Extract token
-CLAUDE_TOKEN=$(python3 -c "import json; print(json.load(open('$HOME/.claude/.credentials.json'))['claudeAiOauth']['accessToken'])")
+CLAUDE_TOKEN=$(node -e "
+  const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
+  if(!d.claudeAiOauth||!d.claudeAiOauth.accessToken){console.error('No Claude OAuth token — run claude /login');process.exit(1)};
+  console.log(d.claudeAiOauth.accessToken)
+") || { echo "ERROR: Claude OAuth token extraction failed"; exit 1; }
 
 # Run
 timeout 120 docker run -i --rm --name fb-smoke-test \

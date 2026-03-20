@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-black?style=flat-square)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-required-orange?style=flat-square&logo=anthropic)](https://claude.ai/code)
-[![Skills](https://img.shields.io/badge/Skills-8-blue?style=flat-square)](#the-skills)
+[![Skills](https://img.shields.io/badge/Skills-10-blue?style=flat-square)](#the-skills)
 [![Models](https://img.shields.io/badge/Multi--Model-Claude_·_Codex_·_Qwen-purple?style=flat-square)](#requirements)
 [![Version](https://img.shields.io/badge/Version-2.0-brightgreen?style=flat-square)](https://github.com/stefans71/FrontierBoard/discussions)
 
@@ -26,7 +26,7 @@
 
 FrontierBoard gives any project an independent review board made of AI agents. Each agent is a frontier model CLI — Claude, Codex, Qwen, or any other — running in its own directory with its own settings. They don't coordinate. They don't see each other's work. They review independently, write their reports, and your Claude synthesises the findings.
 
-> **Note:** In bare mode, blind review is enforced by agent instructions, not by technical isolation. Container mode (v2.0) provides real OS-level isolation — agents physically cannot see each other's directories. API keys are passed as environment variables in Phase 1; a credential proxy (Phase 2) will eliminate this.
+> **Note:** In bare mode, blind review is enforced by agent instructions, not by technical isolation. Container mode (v2.0) provides real OS-level isolation — agents physically cannot see each other's directories. A credential proxy on the host injects API keys transparently — containers never see real credentials.
 
 ### Upgrading existing installs
 
@@ -132,6 +132,9 @@ Your project Claude can request a board review without you opening a second term
 | `/review-release` | Reviews a GitHub repo or release — static analysis, safety verdict, or full build monitoring |
 | `/new-agent` | Adds a new agent to the board — same conversational flow |
 | `/agents-yolo` | Toggles YOLO (full autonomy) vs supervised mode for all agents |
+| `/debug` | Diagnoses board issues — container failures, auth problems, proxy issues, agent errors |
+| `/debug-bug` | Bug fix lifecycle with quality gates — investigate, classify, board review, fix, test, ship |
+| `/teardown` | Removes a FrontierBoard installation cleanly — board files, container artifacts, board user |
 
 Plain language always works. The slash commands are shortcuts.
 

@@ -1,0 +1,66 @@
+# Task YAML Template
+# Copy this to docs/tasks/{task-id}.yaml when creating a new task.
+# The task ID must match an entry in tasks.json.
+#
+# For bugs: all gates apply. For features/debt: skip board_review and code_review
+# unless severity is major/critical.
+
+id: FB-XXX
+title: null
+type: bug  # bug | feature | debt | task
+severity: null  # critical | high | medium | low
+reported: null  # YYYY-MM-DD
+status: pending  # pending | in-progress | deferred | done | closed
+
+# Deferred items only — condition that promotes this to FIX NOW
+trigger: null
+
+gates:
+  investigation:
+    status: pending
+    root_cause: null
+    files_affected: []
+    touches_security: false
+    date: null
+
+  classification:
+    status: pending
+    severity: null
+    escalated: false
+    board_required: false
+    date: null
+
+  board_review:
+    status: pending  # pending | done | skipped
+    rounds: 0
+    findings: []
+    date: null
+
+  fix:
+    status: pending
+    files_modified: []
+    regression_test: false
+    date: null
+
+  smoke_test:
+    status: pending
+    method: null
+    result: null
+    all_agents_pass: false
+    skipped_reason: null
+    date: null
+
+  code_review:
+    status: pending  # pending | done | skipped
+    rounds: 0
+    findings: []
+    date: null
+
+  cleanup:
+    status: pending
+    artifacts_removed: []
+    date: null
+
+  final_signoff:
+    status: pending
+    date: null

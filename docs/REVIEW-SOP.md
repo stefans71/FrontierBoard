@@ -47,6 +47,12 @@ Every DEFER must have: trigger condition, visibility in tracked location, propos
 
 ## 4. Round Structure
 
+### Pre-Round Validation
+
+**Minimum agent count:** Standard reviews require at least 3 agents with reports before proceeding to consolidation. Quick mode (1 agent, 1 round) is an explicit exception — the user opts into reduced coverage.
+
+Before starting Round 1, verify the board has the required agents. If fewer than 3 are configured, warn the owner and get explicit approval to proceed with reduced coverage.
+
 ### Round 1: Blind Review
 Independent analysis. Brief contains: full artifact inline, context, evaluation criteria, output format. Agent writes numbered findings with severity. Facilitator collects — does not share between agents.
 
@@ -54,6 +60,12 @@ Independent analysis. Brief contains: full artifact inline, context, evaluation 
 
 ### Round 2: Consolidation
 Facilitator groups findings by theme, assigns IDs (C1, C2...), notes agreement/disagreement, applies owner directives, classifies each item. Brief to agents contains: consolidated items with anonymized positions, proposed classifications, owner directives. Agents respond: AGREE / DISAGREE (with rationale) / MODIFY (with alternative).
+
+**Classification disagreements:** When agents assign different severities to the same finding during consolidation:
+1. If 2 of 3 agree on severity → use the majority classification, note the dissent
+2. If all 3 disagree → use the highest severity proposed, flag for deliberation in Round 3
+3. If the disagreement is between FIX NOW and DEFER → classify as FIX NOW (err on the side of caution) and let deliberation resolve it
+4. Owner directives override any classification
 
 ### Round 3: Deliberation (if needed)
 Only for disputed items. Agent positions now visible with names. Agents state AGREE or BLOCK. Skip if Round 2 is unanimous.
@@ -81,7 +93,7 @@ The brief is everything. Agents are ephemeral — they know nothing except what'
 
 ### Deferred items are active context
 
-Include the FULL contents of `DEFERRED_WORK.md` in every brief. Frame deferred items as evaluation targets, not exclusions:
+Include all deferred items in every brief. Sources: tasks with `"status": "deferred"` in `tasks.json` (primary), and `DEFERRED_WORK.md` (legacy). Frame deferred items as evaluation targets, not exclusions:
 
 > "Evaluate whether your review triggers any of these deferred items. If a trigger condition is met by the artifact under review, promote to FIX NOW with evidence."
 
@@ -136,12 +148,14 @@ Override agent positions. Issued between rounds, included in next brief. Must in
 | Anti-Pattern | Instead |
 |-------------|---------|
 | Skipping blind review | Always run Round 1 blind |
-| DEFER as "won't do" | DEFER with trigger, track in DEFERRED_WORK.md |
+| DEFER as "won't do" | DEFER with trigger, track in tasks.json (status=deferred) |
 | "Do not re-raise deferred items" | Include full deferred list as active evaluation targets |
 | Briefs without full artifact | Inline everything — agents can't read what isn't there |
 | Briefs without broader context | Include architecture, environment, constraints agents need |
 | Assuming agents remember prior rounds | Every round is a fresh session — provide ALL context |
 | Continuing after agent failure without retry | Retry failed agents — 3-agent minimum needs all 3 |
+| Running standard review with fewer than 3 agents | Validate agent count before Round 1 — warn and get approval |
+| Ignoring severity disagreements in consolidation | Apply tiebreaking rules (Section 4, Round 2) |
 | Sequential agent runs | Parallel per round |
 | Override without rationale | Always explain why |
 | More than 5 rounds | 3-4 is the sweet spot |

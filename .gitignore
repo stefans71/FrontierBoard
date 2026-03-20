@@ -22,9 +22,6 @@ container/.fb-proxy.pid
 .board/board/*/.codex/
 .board/board/*/.qwen/
 
-# Keep directory structure
-!board/.gitkeep
-
 # Environment and credentials — never committed
 .env
 *.env

@@ -1,0 +1,161 @@
+{
+  "meta": {
+    "version": 1,
+    "description": "FrontierBoard issue tracker — bugs, features, and deferred work",
+    "workflow": {
+      "PROJ": "/root/tinkering/FrontierBoard-Main",
+      "BOARD": "/root/tinkering/FrontierBoard-Main-Review",
+      "note": "PROJ is the dev clone (make changes, push here). BOARD is the review board (has .board/, reviews PROJ). Both are clones of stefans71/FrontierBoard at commit e8c62b2."
+    }
+  },
+  "tasks": [
+    {
+      "id": "FB-000",
+      "type": "epic",
+      "title": "OAuth credential fix — board review and ship",
+      "status": "in-progress",
+      "severity": "critical",
+      "found": "2026-03-19",
+      "source": "dev",
+      "description": "8 commits pushed to main fixing OAuth credential handling for container agents: per-request creds, reject expired, Anthropic OAuth hard guard, Codex native auth, entrypoint conditional proxy check. Board review Round 1 ran on dev clone (NanoClaw-V2-Testing/FrontierBoard) — partial results. Fresh clones created to validate the pushed skills produce a working board from scratch. Setup of BOARD clone complete, smoke test passed all 3 agents. Next: run full /debug-bug lifecycle (4-round board review of the OAuth fix).",
+      "subtasks": ["FB-001", "FB-002", "FB-010"],
+      "progress": {
+        "fresh_clones": "done",
+        "board_setup": "done",
+        "smoke_test": "done — all 3 agents passed",
+        "debug_bug_lifecycle": "not started — Phase 3 (board review) is next",
+        "deferred_work_file": "not started"
+      }
+    },
+    {
+      "id": "FB-001",
+      "type": "bug",
+      "title": "Container fails when project has no .env file",
+      "status": "open",
+      "severity": "high",
+      "found": "2026-03-19",
+      "source": "setup smoke test",
+      "files": [".claude/skills/setup/SKILL.md", ".claude/skills/run/SKILL.md"],
+      "description": "docker run with -v /dev/null:/workspace/project/.env:ro fails when the project directory has no .env file. Docker cannot create a mountpoint inside a read-only filesystem mount. Workaround applied: touch $PROJ/.env before launch. Fix needed: /run skill must check for .env existence and skip the mount or create placeholder. Setup templates must document this."
+    },
+    {
+      "id": "FB-002",
+      "type": "bug",
+      "title": "Codex .codex/ directory not chowned for container uid",
+      "status": "open",
+      "severity": "high",
+      "found": "2026-03-19",
+      "source": "setup smoke test",
+      "files": [".claude/skills/setup/SKILL.md"],
+      "description": "Setup chowns outbox/ and learnings/ to uid 1000 for container agents but misses .codex/ (and .claude/). Codex needs write access to .codex/ for session state. Fix: the chown step in setup must include all CLI settings directories: .codex/, .claude/, .qwen/. Workaround applied: chown -R 1000:1000 on .codex/ manually."
+    },
+    {
+      "id": "FB-003",
+      "type": "bug",
+      "title": "Token exposure via docker inspect / env vars",
+      "status": "open",
+      "severity": "medium",
+      "found": "2026-03-19",
+      "source": "board review round 1",
+      "files": ["container/entrypoint.sh", ".claude/skills/run/SKILL.md"],
+      "description": "CLAUDE_CODE_OAUTH_TOKEN passed as env var is visible via docker inspect on the host. Any process with Docker access can read it. Consider mounting a temp file instead and reading inside the container."
+    },
+    {
+      "id": "FB-004",
+      "type": "bug",
+      "title": "No TTL cache on per-request credential file reads",
+      "status": "open",
+      "severity": "low",
+      "found": "2026-03-19",
+      "source": "board review round 1",
+      "files": ["container/fb-credential-proxy.cjs"],
+      "description": "The credential proxy reads credential files from disk on every request. Under load this is unnecessary I/O. Add a short TTL cache (e.g. 30s) for credential reads."
+    },
+    {
+      "id": "FB-005",
+      "type": "bug",
+      "title": "Upstream detection heuristics fragile",
+      "status": "open",
+      "severity": "medium",
+      "found": "2026-03-19",
+      "source": "board review round 1",
+      "files": ["container/fb-credential-proxy.cjs"],
+      "description": "Proxy routes requests based on user-agent and URL heuristics. These are brittle — CLI updates may change user-agent strings or URL patterns without warning."
+    },
+    {
+      "id": "FB-006",
+      "type": "feature",
+      "title": "Proxy rate limiting and authentication",
+      "status": "open",
+      "severity": "medium",
+      "found": "2026-03-19",
+      "source": "board review round 1",
+      "files": ["container/fb-credential-proxy.cjs"],
+      "description": "The credential proxy has no rate limiting or authentication. Any process that can reach the Docker bridge IP can use it to make API calls with the host's credentials."
+    },
+    {
+      "id": "FB-007",
+      "type": "debt",
+      "title": "Proxy implementation is FB-only (decoupled from external projects)",
+      "status": "closed",
+      "severity": "low",
+      "found": "2026-03-19",
+      "source": "board review round 1",
+      "files": ["container/fb-credential-proxy.cjs"],
+      "description": "FrontierBoard's credential proxy is its own standalone implementation. No convergence with external projects needed — FB is an independent project. Closed: NanoClaw decoupling completed 2026-03-20."
+    },
+    {
+      "id": "FB-008",
+      "type": "debt",
+      "title": "No automated tests for credential proxy",
+      "status": "open",
+      "severity": "medium",
+      "found": "2026-03-19",
+      "source": "board review round 1",
+      "files": ["container/fb-credential-proxy.cjs"],
+      "description": "The credential proxy has zero test coverage. Given it handles authentication for all container agents, it needs at least integration tests covering: OAuth routing, API key injection, expired token rejection, path normalization."
+    },
+    {
+      "id": "FB-009",
+      "type": "feature",
+      "title": "Document .codex/ writable mount threat model",
+      "status": "open",
+      "severity": "low",
+      "found": "2026-03-19",
+      "source": "board review round 1",
+      "files": ["docs/SECURITY.md"],
+      "description": "The .codex/ directory is mounted read-write into containers so Codex can write session state. This means a compromised Codex agent could modify its own config. The threat model should be documented."
+    },
+    {
+      "id": "FB-010",
+      "type": "bug",
+      "title": "REVIEW-SOP.md does not require re-running failed agents",
+      "status": "open",
+      "severity": "high",
+      "found": "2026-03-19",
+      "source": "self-review process",
+      "files": ["docs/REVIEW-SOP.md"],
+      "description": "When an agent fails to produce a report, the SOP allows the review to continue with fewer perspectives. With only 3 agents (minimum for tiebreaker), losing 1 means insufficient perspective diversity. The SOP should require re-running failed agents before proceeding."
+    },
+    {
+      "id": "FB-011",
+      "type": "task",
+      "title": "Complete /debug-bug lifecycle — full 4-round board review of OAuth fix",
+      "status": "not-started",
+      "severity": "high",
+      "found": "2026-03-19",
+      "source": "continuation plan",
+      "description": "Run the full /debug-bug lifecycle from BOARD clone reviewing PROJ. Phase 0 (preflight) done. Phase 1 (investigate) done — root cause documented. Phase 2 (classify) done — Major severity. Phase 3 (board review) next: full 4-round SOP, all 3 agents, correct project mount. Then Phase 5 (smoke test all agents), Phase 7 (ship fixes), Phase 8 (cleanup)."
+    },
+    {
+      "id": "FB-012",
+      "type": "task",
+      "title": "Write DEFERRED_WORK.md from Round 1 findings",
+      "status": "not-started",
+      "severity": "medium",
+      "found": "2026-03-19",
+      "source": "continuation plan",
+      "description": "Consolidate deferred items from Round 1 reports (saved at docs/bug-checklists/oauth-fix-review/) into board/DEFERRED_WORK.md so they are loaded into future review briefs per project protocol."
+    }
+  ]
+}

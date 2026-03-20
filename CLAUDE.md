@@ -24,9 +24,9 @@ You orchestrate a board of independent AI agents — each in their own isolated 
 
 ## The Board
 
-Defined in `board/BOARD.md` after setup. Source of truth for agents, CLIs, models, invocation commands. Board doesn't exist until `/setup` runs.
+Defined in `.board/board/BOARD.md` after setup. Source of truth for agents, CLIs, models, invocation commands. Board doesn't exist until `/setup` runs.
 
-**Global mode:** If installed at `~/.frontierboard/`, agents are shared across projects. Per-project state lives in `board/projects/{project-name}/`. When the user says "review [path]", check if that project already has an entry — if yes, load it and run. If no, run `/setup` to create one (skipping agent creation since agents already exist).
+**Global mode:** If installed at `~/.frontierboard/`, agents are shared across projects. Per-project state lives in `.board/projects/{project-name}/`. When the user says "review [path]", check if that project already has an entry — if yes, load it and run. If no, run `/setup` to create one (skipping agent creation since agents already exist).
 
 ---
 
@@ -56,7 +56,17 @@ The container image (`frontierboard-agent:latest`) runs each agent in isolation.
 
 Modes: Quick (1 agent, 1 round), Standard (full board, 4 rounds), Custom.
 
-Deferred items persist in `board/DEFERRED_WORK.md` — always load into briefs.
+Deferred items: tasks with `"status": "deferred"` in `tasks.json`, plus `.board/board/DEFERRED_WORK.md` (legacy). Always load into briefs.
+
+---
+
+## Tracking
+
+Two files, one system:
+- `tasks.json` — master index of bugs, features, deferred work (IDs, titles, status, severity)
+- `docs/tasks/{task-id}.yaml` — detailed task with phase gates, checklists, findings
+
+Deferred items have `"status": "deferred"` and a `"trigger"` field. `/run` and `/brief` load them into every review brief. `/debug-bug` creates task YAML files with phase gates for bug investigations.
 
 ---
 

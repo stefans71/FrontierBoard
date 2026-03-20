@@ -47,7 +47,11 @@ Existing context → read it. New context → write `.board/board/{agent}/contex
 
 ## Step 4: Load Deferred Work
 
-If `.board/board/DEFERRED_WORK.md` exists, read the FULL contents. Deferred items are **active evaluation targets** — agents must check whether the current review triggers any of them.
+Load deferred items from two sources:
+1. `tasks.json` — look for tasks with `"status": "deferred"`. Include their title, description, trigger condition, and severity.
+2. `.board/board/DEFERRED_WORK.md` — if it exists (legacy), read the FULL contents.
+
+Deferred items are **active evaluation targets** — agents must check whether the current review triggers any of them.
 
 ---
 
@@ -75,7 +79,7 @@ Round 1 (Blind Review) brief — same for all agents:
 1. **Context** — what is this, why is it being reviewed, who's the audience
 2. **The artifact** — full text, inline. Code diffs in full. Plans in full. Never summarize what agents can read themselves.
 3. **Broader context** — system architecture, environment, constraints, prior decisions (from Step 5)
-4. **Deferred items** — full contents of DEFERRED_WORK.md, framed as: "Evaluate whether your review triggers any of these deferred items. If a trigger condition is met, promote to FIX NOW with evidence."
+4. **Deferred items** — all deferred tasks from `tasks.json` (status=deferred) and `DEFERRED_WORK.md` (if exists), framed as: "Evaluate whether your review triggers any of these deferred items. If a trigger condition is met, promote to FIX NOW with evidence."
 5. **Evaluation criteria** — what to evaluate, specific questions if any
 6. **Output format** — finding ID, severity (FIX NOW/DEFER/INFO/REJECT), location, finding, recommendation
 7. **User concerns** — anything the user specifically flagged

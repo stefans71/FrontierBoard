@@ -24,7 +24,9 @@ Run `/debug-bug` to investigate and fix a bug with proper quality gates. The pro
 
 - `.board/board/BOARD.md` — operational source of truth (invocations, auth, proxy)
 - `.board/board/{agent}/` — agent dirs (inbox, outbox, contexts, settings)
-- `.board/board/DEFERRED_WORK.md` — active deferred items
+- `.board/board/DEFERRED_WORK.md` — active deferred items (legacy, also check tasks.json status=deferred)
+- `tasks.json` — master task index (bugs, features, deferred work)
+- `docs/tasks/` — per-task YAML files with phase gates and checklists
 - `container/` — Dockerfile, entrypoint, proxy, build script
 - `.claude/skills/` — skill definitions (what the orchestrator follows)
 
@@ -45,17 +47,23 @@ git status --porcelain
 
 If dirty, commit or stash first.
 
-### Check for In-Progress Bugs
+### Check for In-Progress Tasks
 
 ```bash
-ls docs/bug-checklists/*.yaml 2>/dev/null
+# Check tasks.json for in-progress bugs
+cat tasks.json | grep '"status": "in-progress"'
+# Check for existing task YAML files
+ls docs/tasks/FB-*.yaml 2>/dev/null
 ```
 
-If pending checklists exist, show them and ask: continue existing, or start new?
+If in-progress bugs exist, show them and ask: continue existing, or start new?
 
-### Create Checklist
+### Create Task Entry
 
-Ask user for bug name. Create `docs/bug-checklists/{name}.yaml`:
+Ask user for bug name. Assign the next available `FB-XXX` ID from `tasks.json`.
+
+1. Add an entry to `tasks.json` with `status: open`, `type: bug`
+2. Create `docs/tasks/{task-id}-{name}.yaml` from `docs/tasks/TEMPLATE.yaml`:
 
 ```yaml
 bug: { name }
@@ -138,7 +146,7 @@ Don't guess — read the actual code. Follow the flow:
 
 ### Document Root Cause
 
-Update checklist:
+Update task YAML:
 
 ```yaml
 investigation:
@@ -168,7 +176,7 @@ If the fix touches ANY of these, escalate severity by one level:
 - Review SOP (4-round process, lockfile, deferred items, blind review)
 - Setup skill templates (invocation commands that get written to BOARD.md)
 
-Update checklist: `classification.status: done`, `severity: minor|major|critical`
+Update task YAML: `classification.status: done`, `severity: minor|major|critical`
 
 ## Phase 3: Board Review (Major/Critical only)
 
@@ -186,7 +194,9 @@ For **major/critical** bugs: submit investigation + proposed fix to the board.
 
 **Round structure:** Same as review SOP (blind → consolidation → deliberation → confirmation).
 
-Update checklist: `board_review.status: done`, `rounds: N`
+**Retry enforcement:** If any agent fails to produce a report in any round, retry that agent at least once before proceeding. If the retry also fails, do NOT silently continue — inform the user and get explicit approval to proceed with reduced coverage. With 3 agents, losing one means the tiebreaker is gone. Log all failures and retries in the task YAML.
+
+Update task YAML: `board_review.status: done`, `rounds: N`
 
 ## Phase 4: Fix
 
@@ -197,7 +207,7 @@ Implement the fix. For each change, document what file was modified and why.
 - Single-agent smoke test after auth changes
 - Check BOARD.md invocation commands match actual `docker run` being tested
 
-Update checklist: `fix.status: done`, `files_modified: [...]`
+Update task YAML: `fix.status: done`, `files_modified: [...]`
 
 ## Phase 5: Smoke Test
 
@@ -242,7 +252,7 @@ done
 
 **Every agent must produce a report. If any agent fails, the bug is not fixed.**
 
-Update checklist:
+Update task YAML:
 
 ```yaml
 smoke_test:
@@ -258,12 +268,12 @@ For **minor** bugs: set `code_review.status: skipped` and proceed to Phase 7.
 
 For **major/critical** bugs: send `git diff` to the board.
 
-Update checklist: `code_review.status: done`, `rounds: N`
+Update task YAML: `code_review.status: done`, `rounds: N`
 
 ## Phase 7: Ship
 
 1. Commit with bug reference: `git add -A && git commit -m "fix: {description}"`
-2. Update checklist: `final_signoff.status: approved`, `status: approved`
+2. Update task YAML: `final_signoff.status: approved`, `status: approved`
 
 ## Phase 8: Cleanup
 
@@ -298,7 +308,7 @@ docker rm $(docker ps -a --filter "name=fb-.*-smoke" -q) 2>/dev/null
 rm -f /tmp/.fb-claude-creds.json /tmp/.fb-*
 ```
 
-Update checklist: `cleanup.status: done`, `artifacts_removed: [list]`
+Update task YAML: `cleanup.status: done`, `artifacts_removed: [list]`
 
 ---
 
