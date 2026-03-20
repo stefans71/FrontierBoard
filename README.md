@@ -1,6 +1,6 @@
-<div align="center">
+# FrontierBoard — Claude, Codex, Gemini + Together
 
-# FrontierBoard
+<div align="center">
 
 ![FrontierBoard — Lawyers without a courtroom](assets/board.png)
 
@@ -12,7 +12,11 @@
 
 <br>
 
-**Independent AI agents review your work in parallel.<br>None of them see what the others wrote.<br>Your Claude tells you what they agree on — and where they don't.**
+<img src="https://raw.githubusercontent.com/stefans71/Claude_GPT_MCP/main/assets/png/anthropic-logo-small.png" alt="Anthropic" height="50">&nbsp;&nbsp;&nbsp;&nbsp;<img src="https://img.shields.io/badge/+-Codex-412991?style=for-the-badge&logo=openai&logoColor=white" height="30">&nbsp;&nbsp;&nbsp;&nbsp;<img src="https://img.shields.io/badge/+-Qwen-blue?style=for-the-badge" height="30">&nbsp;&nbsp;&nbsp;&nbsp;<img src="https://img.shields.io/badge/+-any_CLI-gray?style=for-the-badge" height="30">
+
+<br>
+
+### Independent AI agents review your work in parallel.<br>None of them see what the others wrote.<br>Your Claude tells you what they agree on — and where they don't.
 
 <br>
 
@@ -30,7 +34,7 @@
 
 <br>
 
-## 🤔 Why
+## <img src="assets/svg/heading-why.svg" alt="Why" height="28">
 
 One model reviewing your code catches some things.
 
@@ -48,7 +52,7 @@ Disagreements are signal, not noise.
 
 <br>
 
-## 🎯 What You Get
+## <img src="assets/svg/heading-what-you-get.svg" alt="What You Get" height="28">
 
 Real output from a board review of FrontierBoard's own credential proxy:
 
@@ -117,7 +121,7 @@ No special commands needed. Plain language always works. Slash commands are shor
 
 <br>
 
-## 🚀 Getting Started
+## <img src="assets/svg/heading-getting-started.svg" alt="Getting Started" height="28">
 
 You need [Claude Code](https://claude.ai/code). That's it.
 
@@ -144,7 +148,7 @@ You never clone anything yourself. Claude handles it.
 
 <br>
 
-## ⚙️ How It Works
+## <img src="assets/svg/heading-how-it-works.svg" alt="How It Works" height="28">
 
 ```mermaid
 graph TD
@@ -177,7 +181,7 @@ They can't see each other's directories, can't access your filesystem, and never
 
 <br>
 
-## 📋 The Skills
+## <img src="assets/svg/heading-the-skills.svg" alt="The Skills" height="28">
 
 ### Setup
 | Command | What it does |
@@ -207,7 +211,7 @@ They can't see each other's directories, can't access your filesystem, and never
 
 <br>
 
-## 📋 Requirements
+## <img src="assets/svg/heading-requirements.svg" alt="Requirements" height="28">
 
 | Requirement | Details |
 |-------------|---------|
@@ -228,7 +232,7 @@ They can't see each other's directories, can't access your filesystem, and never
 
 <br>
 
-## 🔒 Isolation & Security
+## <img src="assets/svg/heading-isolation-security.svg" alt="Isolation & Security" height="28">
 
 - **Container isolation** — each agent runs in its own Docker container. Agents physically cannot see each other's work or access your filesystem beyond the project source (read-only).
 
@@ -244,7 +248,7 @@ They can't see each other's directories, can't access your filesystem, and never
 
 <br>
 
-## 💡 Philosophy
+## <img src="assets/svg/heading-philosophy.svg" alt="Philosophy" height="28">
 
 FrontierBoard is built on a philosophy pioneered by **Gavriel** and the contributors of [NanoClaw](https://github.com/qwibitai/NanoClaw):
 
@@ -269,7 +273,7 @@ No framework. No wizard. No dependency tree. Just your Claude reading a skill fi
 
 ---
 
-## 🙏 Tribute
+## Tribute
 
 FrontierBoard would not exist without **Gavriel** ([qwibitai](https://github.com/qwibitai)) and the NanoClaw contributors — Vaibhav Aggarwal, Skip Potter, Rafael Garcia, Lingfeng Guan, and others.
 
