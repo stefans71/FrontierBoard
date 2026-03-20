@@ -50,23 +50,47 @@ Disagreements are signal, not noise.
 
 ## 🎯 What You Get
 
-Here's what a board review actually produces. Three agents reviewed a credential proxy change independently. This is one finding from the synthesis:
+Real output from a board review of FrontierBoard's own credential proxy:
 
+```mermaid
+graph LR
+    subgraph "🔍 Round 1 — Blind Review"
+        S["Skeptic<br/>(Claude Opus)"]
+        P["Pragmatist<br/>(Claude Opus)"]
+        T["Systems Thinker<br/>(Codex)"]
+    end
+
+    subgraph "📊 Round 2 — Consolidated Findings"
+        C1["🔴 C1: Add ripgrep to image<br/>3/3 agree · FIX NOW"]
+        C4["🔴 C4: Auth cleanup on crash<br/>3/3 agree · FIX NOW"]
+        C6["🔴 C6: Token expires mid-review<br/>2/3 agree · FIX NOW"]
+        C8["🔴 C8: Proxy idle timeout<br/>3/3 agree · FIX NOW"]
+        D1["🟡 D1: Proxy health detection<br/>DEFER · trigger: next proxy change"]
+        I1["🔵 I1: Exit code propagation<br/>INFO · no action needed"]
+    end
+
+    S --> C1
+    S --> C6
+    P --> C4
+    P --> C8
+    T --> D1
+    T --> I1
+
+    subgraph "✅ Round 4 — Sign Off"
+        V["2 SIGN OFF + 1 BLOCK<br/>(resolved — owner override)"]
+    end
+
+    C1 --> V
+    C4 --> V
+    C6 --> V
+    C8 --> V
 ```
-C6: Per-round token extraction + empty guard
-Agents: Pragmatist, Skeptic (2/3)    Severity: FIX NOW
 
-Issue: OAuth token is extracted once at review start but may expire
-during multi-round reviews. If the token refreshes between rounds,
-containers get a stale token and fail with 401.
+<br>
 
-Fix: Re-extract the token before each round. Add an empty-string
-guard — if extraction returns empty, abort before launching containers.
-```
+**10 findings. 6 FIX NOW. 2 DEFER. 2 INFO.** All implemented, smoke-tested, and shipped.
 
-Each finding has a severity (**FIX NOW** / **DEFER** / **INFO**), agent consensus, and a concrete fix.
-
-Agents that disagree get deliberation rounds. The whole process follows a [4-round SOP](docs/REVIEW-SOP.md).
+Each finding has a severity, agent consensus, and a concrete fix. Agents that disagree get deliberation rounds. The whole process follows a [4-round SOP](docs/REVIEW-SOP.md).
 
 <br>
 
@@ -75,21 +99,10 @@ Agents that disagree get deliberation rounds. The whole process follows a [4-rou
 ```
 You: "Review the credential proxy changes"
 
-Claude: [detects domain, writes brief, populates each agent's inbox]
+Claude: [writes brief, runs 3 agents in parallel Docker containers]
 
-     ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-     │   Skeptic     │  │  Pragmatist  │  │   Systems    │
-     │   (Claude)    │  │  (Claude)    │  │   Thinker    │
-     │               │  │              │  │   (Codex)    │
-     │ "Token could  │  │ "Works but   │  │ "Proxy has   │
-     │  expire mid-  │  │  no retry    │  │  no idle     │
-     │  review"      │  │  on failure" │  │  timeout"    │
-     └──────────────┘  └──────────────┘  └──────────────┘
-              \               |               /
-               v              v              v
-
-Claude: "3 agents found 10 issues. 6 are FIX NOW (all agents agree),
-         2 are DEFER (with triggers), 2 are INFO. Here's the breakdown..."
+Claude: "3 agents found 10 issues. 6 are FIX NOW (all agree),
+         2 are DEFER (with triggers), 2 are INFO."
 
 You: "Fix the FIX NOW items"
 
