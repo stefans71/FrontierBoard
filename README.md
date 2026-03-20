@@ -12,9 +12,13 @@
 
 <br>
 
-**Independent AI agents review your work in parallel. None of them see what the others wrote.<br>Your Claude reads all the reports and tells you what they agree on — and where they don't.**
+**Independent AI agents review your work in parallel.<br>None of them see what the others wrote.<br>Your Claude tells you what they agree on — and where they don't.**
+
+<br>
 
 *Your Claude sets it up. Your Claude runs it. FrontierBoard is just the instructions it reads.*
+
+<br>
 
 [30-Second Install](#-getting-started) · [See It Work](#-what-you-get) · [How It Works](#-how-it-works) · [The Skills](#-the-skills)
 
@@ -24,21 +28,27 @@
 
 </div>
 
+<br>
+
+## 🤔 Why
+
+One model reviewing your code catches some things.
+
+The same model reviewing it three times catches **similar things three times**.
+
+Three *different* models — each with a different thinking style, running independently, unable to see each other's work — catch **different things**.
+
+Disagreements are signal, not noise.
+
+> *You pick which models sit on your board. You pick how many.<br>You bring the question. The board brings the perspectives.*
+
+<br>
+
 ---
 
-## Why
+<br>
 
-One model reviewing your code catches some things. The same model reviewing it three times catches **similar things three times**.
-
-Three *different* models — each with a different thinking style, running independently, unable to see each other's work — catch **different things**. Disagreements are signal, not noise.
-
-FrontierBoard gives any project an independent review board. Each agent is a frontier model CLI — Claude, Codex, Qwen, or any other you install — running in its own Docker container, producing blind reports that get synthesised into findings you can trust because no single model produced them alone.
-
-> *You pick which models sit on your board. You pick how many. You bring the question. The board brings the perspectives.*
-
----
-
-## What You Get
+## 🎯 What You Get
 
 Here's what a board review actually produces. Three agents reviewed a credential proxy change independently. This is one finding from the synthesis:
 
@@ -54,7 +64,11 @@ Fix: Re-extract the token before each round. Add an empty-string
 guard — if extraction returns empty, abort before launching containers.
 ```
 
-Each finding has a severity (**FIX NOW** / **DEFER** / **INFO**), agent consensus, and a concrete fix. Agents that disagree get deliberation rounds. The whole process follows a [4-round SOP](docs/REVIEW-SOP.md) — blind review, consolidation, deliberation, confirmation.
+Each finding has a severity (**FIX NOW** / **DEFER** / **INFO**), agent consensus, and a concrete fix.
+
+Agents that disagree get deliberation rounds. The whole process follows a [4-round SOP](docs/REVIEW-SOP.md).
+
+<br>
 
 **Just describe what you want reviewed — Claude handles the rest:**
 
@@ -82,11 +96,15 @@ You: "Fix the FIX NOW items"
 Claude: [implements fixes, sends diff back to the board for code review]
 ```
 
-No special commands needed. Plain language always works. Slash commands are shortcuts for when you want control.
+No special commands needed. Plain language always works. Slash commands are shortcuts.
+
+<br>
 
 ---
 
-## Getting Started
+<br>
+
+## 🚀 Getting Started
 
 You need [Claude Code](https://claude.ai/code). That's it.
 
@@ -107,9 +125,13 @@ Claude reads the install instructions and walks you through everything:
 
 You never clone anything yourself. Claude handles it.
 
+<br>
+
 ---
 
-## How It Works
+<br>
+
+## ⚙️ How It Works
 
 ```mermaid
 graph TD
@@ -128,13 +150,21 @@ graph TD
     I --> K["📋 FIX NOW · DEFER · INFO"]
 ```
 
-Each agent runs in its own **Docker container** with read-only access to your project. They can't see each other's directories, can't access your filesystem, and never see your API keys — a credential proxy on the host handles authentication transparently.
+<br>
 
-**Not just code.** Point the board at architecture decisions, business plans, hiring briefs, financial models, legal documents. The agents have stable thinking styles — skeptic, pragmatist, systems thinker — that apply to any domain. You load domain context per review.
+Each agent runs in its own **Docker container** with read-only access to your project.
+
+They can't see each other's directories, can't access your filesystem, and never see your API keys — a credential proxy on the host handles authentication transparently.
+
+**Not just code.** Point the board at architecture decisions, business plans, hiring briefs, financial models, legal documents. The agents have stable thinking styles that apply to any domain.
+
+<br>
 
 ---
 
-## The Skills
+<br>
+
+## 📋 The Skills
 
 ### Setup
 | Command | What it does |
@@ -158,9 +188,13 @@ Each agent runs in its own **Docker container** with read-only access to your pr
 | `/debug-bug` | Bug fix lifecycle with quality gates — investigate, classify, board review, fix, test, ship |
 | `/teardown` | Removes a FrontierBoard installation cleanly |
 
+<br>
+
 ---
 
-## Requirements
+<br>
+
+## 📋 Requirements
 
 | Requirement | Details |
 |-------------|---------|
@@ -169,35 +203,60 @@ Each agent runs in its own **Docker container** with read-only access to your pr
 | **Frontier model CLIs** | You choose which models sit on your board. Claude installs them during `/setup` |
 
 **Supported CLIs** (install as many as you want):
+
 - `claude` — Claude Code (Anthropic)
 - `codex` — Codex CLI (OpenAI) · [github.com/openai/codex](https://github.com/openai/codex)
 - `qwen` — Qwen Code (Alibaba) · [github.com/QwenLM/qwen-code](https://github.com/QwenLM/qwen-code)
 - Any other frontier CLI that supports a local settings file
 
+<br>
+
 ---
 
-## Isolation & Security
+<br>
+
+## 🔒 Isolation & Security
 
 - **Container isolation** — each agent runs in its own Docker container. Agents physically cannot see each other's work or access your filesystem beyond the project source (read-only).
+
 - **Credential proxy** — API keys never enter containers. A proxy on the host injects credentials transparently. Containers get placeholder keys.
+
 - **No framework, no runtime** — FrontierBoard is just skill files your Claude reads. No code runs before you trust it. Inspect everything.
+
 - **Blind review enforced at OS level** — in container mode, there's no way for agents to peek at each other's reports, even in YOLO mode.
+
+<br>
 
 ---
 
-## Philosophy
+<br>
+
+## 💡 Philosophy
 
 FrontierBoard is built on a philosophy pioneered by **Gavriel** and the contributors of [NanoClaw](https://github.com/qwibitai/NanoClaw):
 
 > *Small enough to understand. AI-native. Claude Code is the installer, the runtime, and the operator.*
 
-No framework. No wizard. No dependency tree. Just your Claude reading a skill file and doing the work — asking questions, fixing problems, building things from your answers.
+No framework. No wizard. No dependency tree. Just your Claude reading a skill file and doing the work.
 
 **The board is lawyers without a courtroom.** It has no opinions about what you're reviewing. You bring the question. The board brings the perspectives.
 
+<br>
+
 ---
 
-## Tribute
+### Built With
+
+<p>
+  <img src="https://img.shields.io/badge/Claude_Code-Anthropic-orange?style=for-the-badge&logo=anthropic&logoColor=white" />
+  <img src="https://img.shields.io/badge/Codex-OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white" />
+  <img src="https://img.shields.io/badge/Docker-Container_Isolation-2496ED?style=for-the-badge&logo=docker&logoColor=white" />
+  <img src="https://img.shields.io/badge/Node.js-Credential_Proxy-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" />
+</p>
+
+---
+
+## 🙏 Tribute
 
 FrontierBoard would not exist without **Gavriel** ([qwibitai](https://github.com/qwibitai)) and the NanoClaw contributors — Vaibhav Aggarwal, Skip Potter, Rafael Garcia, Lingfeng Guan, and others.
 
