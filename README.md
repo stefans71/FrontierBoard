@@ -4,35 +4,85 @@
 
 ![FrontierBoard — Lawyers without a courtroom](assets/board.png)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-black?style=flat-square)](LICENSE)
-[![Claude Code](https://img.shields.io/badge/Claude_Code-required-orange?style=flat-square&logo=anthropic)](https://claude.ai/code)
-[![Skills](https://img.shields.io/badge/Skills-10-blue?style=flat-square)](#the-skills)
-[![Models](https://img.shields.io/badge/Multi--Model-Claude_·_Codex_·_Qwen-purple?style=flat-square)](#requirements)
-[![Version](https://img.shields.io/badge/Version-2.0-brightgreen?style=flat-square)](https://github.com/stefans71/FrontierBoard/discussions)
+![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
+![Claude Code](https://img.shields.io/badge/Claude_Code-required-orange?style=for-the-badge&logo=anthropic)
+![Skills](https://img.shields.io/badge/Skills-10-green?style=for-the-badge)
+![Multi-Model](https://img.shields.io/badge/Multi--Model-any_frontier_CLI-purple?style=for-the-badge)
+![GitHub stars](https://img.shields.io/github/stars/stefans71/FrontierBoard?style=for-the-badge)
 
-**A governance board of frontier model agents — independent, parallel, ruthlessly honest.**
+<br>
+
+**Independent AI agents review your work in parallel. None of them see what the others wrote.<br>Your Claude reads all the reports and tells you what they agree on — and where they don't.**
 
 *Your Claude sets it up. Your Claude runs it. FrontierBoard is just the instructions it reads.*
 
+[30-Second Install](#-getting-started) · [See It Work](#-what-you-get) · [How It Works](#-how-it-works) · [The Skills](#-the-skills)
+
 ---
 
-[Get Started](#getting-started) · [Four Ways to Use It](#four-ways-to-use-frontierboard) · [How It Works](#how-it-works) · [The Skills](#the-skills) · [Philosophy](#philosophy)
+> **This project was reviewed by its own board** — three agents found 10 critical issues across credential handling, container isolation, and review process integrity. All fixed. [See the review.](docs/tasks/FB-000-oauth-credential-fix.yaml)
 
 </div>
 
 ---
 
-## What It Is
+## Why
 
-FrontierBoard gives any project an independent review board made of AI agents. Each agent is a frontier model CLI — Claude, Codex, Qwen, or any other — running in its own directory with its own settings. They don't coordinate. They don't see each other's work. They review independently, write their reports, and your Claude synthesises the findings.
+One model reviewing your code catches some things. The same model reviewing it three times catches **similar things three times**.
 
-> **Note:** In bare mode, blind review is enforced by agent instructions, not by technical isolation. Container mode (v2.0) provides real OS-level isolation — agents physically cannot see each other's directories. A credential proxy on the host injects API keys transparently — containers never see real credentials.
+Three *different* models — each with a different thinking style, running independently, unable to see each other's work — catch **different things**. Disagreements are signal, not noise.
 
-### Upgrading existing installs
+FrontierBoard gives any project an independent review board. Each agent is a frontier model CLI — Claude, Codex, Qwen, or any other you install — running in its own Docker container, producing blind reports that get synthesised into findings you can trust because no single model produced them alone.
 
-If you set up FrontierBoard before v2.0, your BOARD.md may be missing new fields (`isolation`, `timeout`, `unset CLAUDECODE`). To upgrade: re-run `/setup` on the same project — setup detects existing agents and updates the configuration without rebuilding them. Or manually add the fields following the templates in `setup/SKILL.md` Step 7.
+> *You pick which models sit on your board. You pick how many. You bring the question. The board brings the perspectives.*
 
-Point it at code, architecture, a business decision, a hiring brief, a financial model. The board has no fixed domain. You bring the question. The board brings the perspectives.
+---
+
+## What You Get
+
+Here's what a board review actually produces. Three agents reviewed a credential proxy change independently. This is one finding from the synthesis:
+
+```
+C6: Per-round token extraction + empty guard
+Agents: Pragmatist, Skeptic (2/3)    Severity: FIX NOW
+
+Issue: OAuth token is extracted once at review start but may expire
+during multi-round reviews. If the token refreshes between rounds,
+containers get a stale token and fail with 401.
+
+Fix: Re-extract the token before each round. Add an empty-string
+guard — if extraction returns empty, abort before launching containers.
+```
+
+Each finding has a severity (**FIX NOW** / **DEFER** / **INFO**), agent consensus, and a concrete fix. Agents that disagree get deliberation rounds. The whole process follows a [4-round SOP](docs/REVIEW-SOP.md) — blind review, consolidation, deliberation, confirmation.
+
+**Just describe what you want reviewed — Claude handles the rest:**
+
+```
+You: "Review the credential proxy changes"
+
+Claude: [detects domain, writes brief, populates each agent's inbox]
+
+     ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+     │   Skeptic     │  │  Pragmatist  │  │   Systems    │
+     │   (Claude)    │  │  (Claude)    │  │   Thinker    │
+     │               │  │              │  │   (Codex)    │
+     │ "Token could  │  │ "Works but   │  │ "Proxy has   │
+     │  expire mid-  │  │  no retry    │  │  no idle     │
+     │  review"      │  │  on failure" │  │  timeout"    │
+     └──────────────┘  └──────────────┘  └──────────────┘
+              \               |               /
+               v              v              v
+
+Claude: "3 agents found 10 issues. 6 are FIX NOW (all agents agree),
+         2 are DEFER (with triggers), 2 are INFO. Here's the breakdown..."
+
+You: "Fix the FIX NOW items"
+
+Claude: [implements fixes, sends diff back to the board for code review]
+```
+
+No special commands needed. Plain language always works. Slash commands are shortcuts for when you want control.
 
 ---
 
@@ -42,63 +92,20 @@ You need [Claude Code](https://claude.ai/code). That's it.
 
 Open Claude Code and say:
 
-    Set up FrontierBoard: https://github.com/stefans71/FrontierBoard/blob/main/README.md
+```
+Set up FrontierBoard: https://github.com/stefans71/FrontierBoard/blob/main/docs/INSTALL.md
+```
 
-Claude reads the install instructions on that page and walks you through everything:
+Claude reads the install instructions and walks you through everything:
 
-- **New project?** Claude asks for a name, creates the folder, sets up your
-  filing cabinet, and optionally adds a review board.
-- **Existing project?** Claude asks for the path, reads your project, and
-  sets up the board.
-- **Just want to review a GitHub repo?** Claude clones FrontierBoard, then
-  runs `/review-release` — no project folder needed.
-- **Want it everywhere?** Install globally once, then run board reviews from
-  any project without re-cloning.
+| Option | What happens |
+|--------|-------------|
+| **New project** | Creates the folder, interviews you, sets up a filing cabinet + review board |
+| **Existing project** | Reads your project, builds the board as a neighbor directory |
+| **Review a GitHub repo** | No project needed — static analysis, safety verdict, or full build review |
+| **Global install** | Install once at `~/.frontierboard/`, review any project from anywhere |
 
 You never clone anything yourself. Claude handles it.
-
----
-
-## Four Ways to Use FrontierBoard
-
-### New project — filing cabinet + board
-
-> *An improvising Claude, left alone in a new codebase, produces the kind of file structure that looks like a 5-year-old was left unsupervised in your office for an hour.*
-
-Claude interviews you and builds the four files that keep it sane across every session:
-
-| File | What it does |
-|------|-------------|
-| `.claude/settings.json` | Guardrails before anything runs. Deny list tailored to your stack. |
-| `CLAUDE.md` | Under 150 lines. Identity, not a knowledge dump. |
-| `SPEC.md` | Architecture from the interview — not a template. |
-| `tasks.md` | Survives compaction. Phase boundaries. Keeps your project from losing its place. |
-
-Works for new and existing projects. For existing projects it scans first, confirms what it found, and only fills in what's missing. Optionally wires in the review board at the end.
-
----
-
-### Existing project — just the board
-
-Already have your project set up? Claude interviews you about your review needs, reads the project, builds the agents, and installs the board. Everything is conversational — Claude asks the questions, you answer, Claude does the work.
-
----
-
-### Review a GitHub repo — no project needed
-
-Just want to review someone else's code before installing it, or find bugs to contribute? No project folder needed. Three review modes:
-
-- **Mode A** — Static release review: find bugs and improvements in a diff
-- **Mode B** — Safety review: is this repo safe to install?
-- **Mode C** — Full build review: clone it, install it, capture what breaks
-
----
-
-### Global install — one board for all your projects
-
-Install FrontierBoard once at `~/.frontierboard/`. Then run board reviews from any project — no per-project cloning needed. The global board keeps a separate workspace for each project it reviews, so nothing bleeds between them.
-
-Good for developers who work across many repos and want a standing review board available everywhere.
 
 ---
 
@@ -106,62 +113,75 @@ Good for developers who work across many repos and want a standing review board 
 
 ```mermaid
 graph TD
-    A[you + claude] -->|/project-init or /setup| B[your Claude interviews you]
-    B --> C[filing cabinet written to your project]
-    B --> D[board agents configured]
-    D --> E[skeptic · optimist · risk officer · ...]
-    E -->|run in parallel, no coordination| F[independent reports]
-    F --> G[your Claude synthesises findings]
-    G --> H[you get signal you can trust]
+    A["🧑‍💻 You + Claude"] -->|describe what to review| B["📝 Claude writes a brief"]
+    B --> C["📬 Brief goes to each agent's inbox"]
+    C --> D["🔍 Skeptic<br/>blind review"]
+    C --> E["⚙️ Pragmatist<br/>blind review"]
+    C --> F["🔗 Systems Thinker<br/>blind review"]
+    D --> G["📊 Round 2: Consolidation<br/>Group findings · classify severity"]
+    E --> G
+    F --> G
+    G --> H{"🤝 Unanimous?"}
+    H -->|Yes| I["✅ Round 4: Confirmation<br/>All agents sign off"]
+    H -->|No| J["⚖️ Round 3: Deliberation<br/>Disputed items only"]
+    J --> I
+    I --> K["📋 FIX NOW · DEFER · INFO"]
 ```
 
-Each agent runs from its own directory. That directory contains a settings file for that agent's CLI. When the CLI starts, it finds that local settings file first — and stops walking up the tree. Your project config, your interactive session, your other agents — the settings don't bleed through.
+Each agent runs in its own **Docker container** with read-only access to your project. They can't see each other's directories, can't access your filesystem, and never see your API keys — a credential proxy on the host handles authentication transparently.
 
-Your project Claude can request a board review without you opening a second terminal. It writes a brief, shells out, the agents run in parallel, and it reads the synthesis back to you.
+**Not just code.** Point the board at architecture decisions, business plans, hiring briefs, financial models, legal documents. The agents have stable thinking styles — skeptic, pragmatist, systems thinker — that apply to any domain. You load domain context per review.
 
 ---
 
 ## The Skills
 
-| Command | What your Claude does |
-|---------|----------------------|
-| `/project-init` | Interviews you · writes the filing cabinet · optionally wires in the board · works for new and existing projects |
-| `/setup` | Builds your board from scratch — reads your project, sets up agents, handles CLI auth |
-| `/brief` | Sets context for a review — detects domain, writes or activates context, populates inboxes |
-| `/run` | Runs all agents in parallel · collects reports · synthesises findings |
-| `/review-release` | Reviews a GitHub repo or release — static analysis, safety verdict, or full build monitoring |
-| `/new-agent` | Adds a new agent to the board — same conversational flow |
-| `/agents-yolo` | Toggles YOLO (full autonomy) vs supervised mode for all agents |
-| `/debug` | Diagnoses board issues — container failures, auth problems, proxy issues, agent errors |
+### Setup
+| Command | What it does |
+|---------|-------------|
+| `/project-init` | Interviews you, writes a filing cabinet (settings, CLAUDE.md, spec, tasks) for new or existing projects |
+| `/setup` | Builds the board — reads your project, creates agents, handles CLI auth, Docker, isolation |
+| `/new-agent` | Adds a new agent to an existing board |
+
+### Review
+| Command | What it does |
+|---------|-------------|
+| `/brief` | Sets context for a review — detects domain, writes context, populates inboxes |
+| `/run` | Runs all agents in parallel, collects reports, synthesises findings (4-round SOP) |
+| `/review-release` | Reviews a GitHub repo — static analysis, safety verdict, or full build review in Docker |
+
+### Manage
+| Command | What it does |
+|---------|-------------|
+| `/agents-yolo` | Toggles between full autonomy and supervised mode for all agents |
+| `/debug` | Diagnoses board issues — container failures, auth problems, proxy issues |
 | `/debug-bug` | Bug fix lifecycle with quality gates — investigate, classify, board review, fix, test, ship |
-| `/teardown` | Removes a FrontierBoard installation cleanly — board files, container artifacts, board user |
-
-Plain language always works. The slash commands are shortcuts.
-
----
-
-## What Gets Committed vs What Lives Locally
-
-The repo contains only the seed — skill files and an empty board directory. Everything generated lives locally and is gitignored:
-
-- Agent directories and their settings bubbles
-- Agent identities and domain contexts
-- Review briefs, reports, and the review log
-- Your filing cabinet (`SPEC.md`, `tasks.md`, `settings.json`)
-
-The repo stays minimal. Your board is yours.
+| `/teardown` | Removes a FrontierBoard installation cleanly |
 
 ---
 
 ## Requirements
 
-- **[Claude Code](https://claude.ai/code)** — required. This is how you interact with the board.
-- **Docker** — recommended for container isolation mode. Agents run in isolated containers with no access to each other or your filesystem. Setup installs Docker if needed.
-- **Frontier model CLIs** — installed by your Claude during `/setup` as needed:
-  - `claude` — Claude Code (Anthropic)
-  - `codex` — Codex CLI (OpenAI) · [github.com/openai/codex](https://github.com/openai/codex)
-  - `qwen` — Qwen Code (Alibaba) · [github.com/QwenLM/qwen-code](https://github.com/QwenLM/qwen-code)
-  - Any other frontier CLI that supports a local settings file
+| Requirement | Details |
+|-------------|---------|
+| **[Claude Code](https://claude.ai/code)** | Required — this is how you interact with the board |
+| **Docker** | Recommended for container isolation — setup installs it if needed |
+| **Frontier model CLIs** | You choose which models sit on your board. Claude installs them during `/setup` |
+
+**Supported CLIs** (install as many as you want):
+- `claude` — Claude Code (Anthropic)
+- `codex` — Codex CLI (OpenAI) · [github.com/openai/codex](https://github.com/openai/codex)
+- `qwen` — Qwen Code (Alibaba) · [github.com/QwenLM/qwen-code](https://github.com/QwenLM/qwen-code)
+- Any other frontier CLI that supports a local settings file
+
+---
+
+## Isolation & Security
+
+- **Container isolation** — each agent runs in its own Docker container. Agents physically cannot see each other's work or access your filesystem beyond the project source (read-only).
+- **Credential proxy** — API keys never enter containers. A proxy on the host injects credentials transparently. Containers get placeholder keys.
+- **No framework, no runtime** — FrontierBoard is just skill files your Claude reads. No code runs before you trust it. Inspect everything.
+- **Blind review enforced at OS level** — in container mode, there's no way for agents to peek at each other's reports, even in YOLO mode.
 
 ---
 
@@ -171,9 +191,7 @@ FrontierBoard is built on a philosophy pioneered by **Gavriel** and the contribu
 
 > *Small enough to understand. AI-native. Claude Code is the installer, the runtime, and the operator.*
 
-No framework. No wizard. No dependency tree. No code that runs before you trust it. Just your Claude reading a skill file and doing the work — asking questions, fixing problems, building things from your answers.
-
-FrontierBoard applies that to a governance problem: independent agents, independent perspectives, independent reports. A system designed to find what one model misses, to surface disagreement, to give you signal you can trust because no single model produced it alone.
+No framework. No wizard. No dependency tree. Just your Claude reading a skill file and doing the work — asking questions, fixing problems, building things from your answers.
 
 **The board is lawyers without a courtroom.** It has no opinions about what you're reviewing. You bring the question. The board brings the perspectives.
 
@@ -187,7 +205,8 @@ If you haven't read NanoClaw, [read it](https://github.com/qwibitai/NanoClaw). I
 
 ---
 
-## For Claude — Install Instructions
+<details>
+<summary><h2>For Claude — Install Instructions</h2></summary>
 
 **STOP.** When a user gives you this URL or asks you to set up FrontierBoard:
 - Do NOT explore the repo via GitHub API
@@ -261,10 +280,20 @@ For global installs, also install a global skill so the user can type `/frontier
 
 Create `~/.claude/skills/frontierboard/SKILL.md` that shells out to the global FrontierBoard install, passing the current working directory as the project path. This lets the user trigger board reviews from any Claude session without switching directories.
 
+</details>
+
 ---
 
-<div align="center">
+<p align="center">
+  <b>Like this project? Give it a ⭐ on GitHub!</b>
+  <br><br>
+  <a href="https://github.com/stefans71/FrontierBoard/issues">Report an Issue</a>
+  ·
+  <a href="https://github.com/stefans71/FrontierBoard/discussions">Discussions</a>
+</p>
 
-*MIT License · [Discussions](https://github.com/stefans71/FrontierBoard/discussions) · [Report an Issue](https://github.com/stefans71/FrontierBoard/issues)*
-
-</div>
+<p align="center">
+  <sub>Built for teams and developers who want signal they can trust</sub>
+  <br>
+  <sub>MIT License</sub>
+</p>
