@@ -2,7 +2,7 @@
 
 # FrontierBoard
 
-![FrontierBoard — Lawyers without a courtroom](assets/banner.png)
+![FrontierBoard — Lawyers without a courtroom](assets/board.png)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-black?style=flat-square)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-required-orange?style=flat-square&logo=anthropic)](https://claude.ai/code)
