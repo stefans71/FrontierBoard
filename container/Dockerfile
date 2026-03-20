@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y \
     libxshmfence1 \
     curl \
     git \
+    ripgrep \
     && rm -rf /var/lib/apt/lists/*
 
 # Chromium path for agent-browser
@@ -57,6 +58,9 @@ RUN chmod +x /app/entrypoint.sh
 # Non-root user for security
 RUN chown -R node:node /workspace /home/node && chmod 755 /home/node
 USER node
+
+# C2: Allow git operations on read-only project mounts owned by different uid
+RUN git config --global --add safe.directory '*'
 WORKDIR /workspace/agent
 
 ENTRYPOINT ["/app/entrypoint.sh"]

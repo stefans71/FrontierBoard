@@ -45,7 +45,7 @@ These are operational facts Claude cannot derive from general training. Never re
 
 6. **Billing warnings are mandatory** — Always warn users about pay-per-use billing (OpenAI API, Anthropic API) before accepting keys. Recommend spend limits. Claude Pro/Max subscriptions have no extra charges — mention this.
 
-7. **Agent model must be opus or higher** — Settings bubbles must set model to `claude-opus-4-6` (Claude Code) or `o4-mini` (Codex). Never use Sonnet — it lacks the reasoning depth for independent review.
+7. **Agent model must be high-reasoning** — Settings bubbles must set model to `claude-opus-4-6` (Claude Code). For Codex, let it default to its recommended model (currently `gpt-5.4`) or explicitly set `gpt-5.4` / `gpt-5.3-codex`. The old `o4-mini` name is retired and causes errors. Never use Sonnet — it lacks the reasoning depth for independent review.
 
 8. **Codex approval_policy is `never`** — The Codex config.toml must use `approval_policy = "never"` (not "full-auto"). And Codex invocations in BOARD.md must include `--dangerously-bypass-approvals-and-sandbox`. Without this flag, Codex won't run as a subprocess.
 
@@ -118,7 +118,7 @@ Record the choice. Write `isolation: container` or `isolation: bare` in BOARD.md
 - **Outbox permissions:** Container agents run as `node` (uid 1000). After creating agent directories, `chown -R 1000:1000 $BOARD/.board/board/*/outbox $BOARD/.board/board/*/learnings` so agents can write reports. Also chown CLI settings directories that agents need write access to: `chown -R 1000:1000 $BOARD/.board/board/*/.codex $BOARD/.board/board/*/.claude 2>/dev/null` (Codex writes session state to `.codex/`, Claude writes to `.claude/`).
 - **Credential handling:** Depends on auth method (detected during Step 5):
   - **API key** (`ANTHROPIC_API_KEY` set): Use the credential proxy for all agents. Containers get placeholder keys and the proxy URL.
-  - **OAuth subscription** (Claude Max/Pro, no API key): Pass `CLAUDE_CODE_OAUTH_TOKEN` env var to Claude containers. The orchestrator reads the current access token from `~/.claude/.credentials.json` before each round and passes it. Token lifetime is 7+ hours; review rounds take ~15 min — no refresh needed inside containers. The proxy is still used for Codex agents (reads from `~/.codex/auth.json`).
+  - **OAuth subscription** (Claude Max/Pro, no API key): Pass `CLAUDE_CODE_OAUTH_TOKEN` env var to Claude containers. The orchestrator reads the current access token from `~/.claude/.credentials.json` before each round and passes it. Token lifetime is 7+ hours; review rounds take ~15 min — no refresh needed inside containers. Codex agents with ChatGPT OAuth use native auth (copied `auth.json`) — they also bypass the proxy (see HWK #12).
   - **Important:** Do NOT mount `~/.claude/.credentials.json` directly — it's owned by root (mode 600) and the container's `node` user (uid 1000) can't read it. Do NOT use the proxy with OAuth tokens — the Anthropic API rejects OAuth tokens injected as Bearer headers by third parties.
 
 **If bare mode:**
@@ -164,6 +164,13 @@ Explain once: credentials are global (one login per machine), settings are per-a
 
 If a board user was created, copy credential files from current user's home to board user's home.
 
+**C10: Validate credentials before proceeding.** After auth setup, verify that each configured credential source actually exists and is usable:
+- **Claude OAuth:** Check `~/.claude/.credentials.json` exists, is parseable JSON, and contains a non-empty `claudeAiOauth.accessToken`. If missing or empty: "Run `claude /login` to authenticate, then re-run `/setup`." (Runtime extraction in `/run` is the authoritative freshness check — setup validates obvious misconfigurations only.)
+- **Codex ChatGPT OAuth:** Check `~/.codex/auth.json` exists. If missing: "Run `codex` to authenticate, then re-run `/setup`."
+- **API keys:** Verify the relevant env var (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) is set and non-empty.
+
+Do NOT continue to Step 6 if validation fails — the generated invocation templates will be correct but unusable. Fail early with an actionable message.
+
 ---
 
 ## Step 6: Build the Agents
@@ -206,12 +213,13 @@ Container agents don't need `unset CLAUDECODE` or a board user — the container
 
 **Claude Code (container — OAuth mode):**
 ```bash
-# Extract token using node (guaranteed available — FB requires Node.js)
+# C6: Extract token with fail-fast guards — must re-run before EACH round
 CLAUDE_TOKEN=$(node -e "
   const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
   if(!d.claudeAiOauth||!d.claudeAiOauth.accessToken){console.error('No Claude OAuth token — run claude /login');process.exit(1)};
   console.log(d.claudeAiOauth.accessToken)
-")
+") || { echo "ERROR: Claude OAuth token extraction failed — run 'claude /login'"; exit 1; }
+[ -z "$CLAUDE_TOKEN" ] && { echo "ERROR: Claude OAuth token is empty — run 'claude /login'"; exit 1; }
 timeout 900 docker run -i --rm --name fb-$AGENT_NAME-$(date +%s) \
   -e FB_CLI=claude -e FB_YOLO=true \
   -e FB_PROMPT="read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md" \

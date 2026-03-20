@@ -312,11 +312,16 @@ function startProxy() {
     // Health check — no auth required, does NOT reset idle timer (D3/D5)
     if (req.url === '/health' || req.url === '/') {
       const creds = getCredentials();
-      const sources = Object.entries(creds)
+      // C5: Report only proxyable credentials (OAuth-only creds can't be proxied)
+      const proxyable = [];
+      if (creds.anthropic && creds._anthropicAuthMode === 'apikey') proxyable.push('anthropic');
+      if (creds.openai && process.env.OPENAI_API_KEY) proxyable.push('openai');
+      if (creds.dashscope) proxyable.push('dashscope');
+      const available = Object.entries(creds)
         .filter(([k, v]) => v && !k.startsWith('_'))
         .map(([k]) => k);
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ service: 'fb-credential-proxy', port: PORT, pid: process.pid, credentials: sources }));
+      res.end(JSON.stringify({ service: 'fb-credential-proxy', port: PORT, pid: process.pid, credentials: proxyable, available }));
       return;
     }
 
@@ -372,7 +377,7 @@ function startProxy() {
       // C4: injectCredentials returns null when Anthropic OAuth is detected (known-broken path)
       if (!headers) {
         res.writeHead(400, { 'content-type': 'text/plain' });
-        res.end('Cannot proxy OAuth tokens to Anthropic — use CLAUDE_CODE_OAUTH_TOKEN env var instead. See Hard-Won Knowledge #10.');
+        res.end('Cannot proxy OAuth tokens to Anthropic — the API rejects third-party Bearer injection. Configure the container with CLAUDE_CODE_OAUTH_TOKEN env var instead.');
         return;
       }
 

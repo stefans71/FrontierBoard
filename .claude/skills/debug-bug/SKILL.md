@@ -210,14 +210,19 @@ BOARD=/path/to/FrontierBoard/.board
 PROJ=/path/to/project
 
 # Pre-round setup
-CLAUDE_TOKEN=$(python3 -c "import json; print(json.load(open('$HOME/.claude/.credentials.json'))['claudeAiOauth']['accessToken'])")
+CLAUDE_TOKEN=$(node -e "
+  const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
+  if(!d.claudeAiOauth||!d.claudeAiOauth.accessToken){console.error('No Claude OAuth token — run claude /login');process.exit(1)};
+  console.log(d.claudeAiOauth.accessToken)
+") || { echo "ERROR: Claude OAuth token extraction failed — run 'claude /login'"; exit 1; }
+[ -z "$CLAUDE_TOKEN" ] && { echo "ERROR: empty token"; exit 1; }
 # Copy Codex auth (prefer board user's fresh token)
 if [ -f /home/llmuser/.codex/auth.json ]; then
   cp /home/llmuser/.codex/auth.json "$BOARD/board/systems-thinker/.codex/auth.json"
 elif [ -f ~/.codex/auth.json ]; then
   cp ~/.codex/auth.json "$BOARD/board/systems-thinker/.codex/auth.json"
 fi
-chmod 644 "$BOARD/board/systems-thinker/.codex/auth.json" 2>/dev/null
+chmod 600 "$BOARD/board/systems-thinker/.codex/auth.json" 2>/dev/null
 
 # Write test brief to all agents
 for agent in pragmatist systems-thinker skeptic; do

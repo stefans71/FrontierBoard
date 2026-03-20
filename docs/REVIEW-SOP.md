@@ -50,6 +50,8 @@ Every DEFER must have: trigger condition, visibility in tracked location, propos
 ### Round 1: Blind Review
 Independent analysis. Brief contains: full artifact inline, context, evaluation criteria, output format. Agent writes numbered findings with severity. Facilitator collects — does not share between agents.
 
+**Failed agents must be re-run.** If an agent fails to produce a report (timeout, crash, auth error), the facilitator must retry it at least once before proceeding. With the minimum 3-agent board, losing one agent means insufficient perspective diversity for meaningful consensus. Only proceed with fewer agents if the retry also fails AND the owner explicitly approves continuing with reduced coverage.
+
 ### Round 2: Consolidation
 Facilitator groups findings by theme, assigns IDs (C1, C2...), notes agreement/disagreement, applies owner directives, classifies each item. Brief to agents contains: consolidated items with anonymized positions, proposed classifications, owner directives. Agents respond: AGREE / DISAGREE (with rationale) / MODIFY (with alternative).
 
@@ -139,6 +141,7 @@ Override agent positions. Issued between rounds, included in next brief. Must in
 | Briefs without full artifact | Inline everything — agents can't read what isn't there |
 | Briefs without broader context | Include architecture, environment, constraints agents need |
 | Assuming agents remember prior rounds | Every round is a fresh session — provide ALL context |
+| Continuing after agent failure without retry | Retry failed agents — 3-agent minimum needs all 3 |
 | Sequential agent runs | Parallel per round |
 | Override without rationale | Always explain why |
 | More than 5 rounds | 3-4 is the sweet spot |

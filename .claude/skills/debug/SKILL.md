@@ -239,7 +239,7 @@ Check in order:
 - Agent didn't get its CLAUDE.md (identity lost) — check mount
 - Brief was empty or too vague — check `inbox/brief.md`
 - Context file missing — check `inbox/context.md` and `contexts/{domain}.md`
-- Model too weak — must be `claude-opus-4-6` or `o4-mini`, never Sonnet
+- Model too weak — must be `claude-opus-4-6` (Claude) or `gpt-5.4` / `gpt-5.3-codex` (Codex), never Sonnet
 
 ### 5.3 Report is Stale (From Previous Round)
 
@@ -672,7 +672,7 @@ These are operational facts that have caused real failures. Memorize them.
 | 4 | Validate sudoers with `visudo -c` | Bad sudoers file bricks sudo |
 | 5 | Board user must own `.board/` | Permission denied on agent dirs |
 | 6 | Billing warnings before API keys | Pay-per-use costs surprise users |
-| 7 | Agent model: Opus+ or o4-mini | Sonnet lacks reasoning depth |
+| 7 | Agent model: Opus+ or gpt-5.4/gpt-5.3-codex | Sonnet lacks reasoning depth |
 | 8 | Codex: `approval_policy = "never"` | "full-auto" doesn't work as subprocess |
 | 9 | Invocation must read CLAUDE.md first | Agents lose identity without it |
 | 10 | Don't proxy OAuth tokens for Anthropic | API rejects third-party Bearer injection |

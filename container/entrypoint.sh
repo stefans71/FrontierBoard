@@ -32,11 +32,20 @@ case "$AGENT_MODE" in
     # Skip for OAuth containers — they don't use the proxy
     PROXY_PORT="${FB_PROXY_PORT:-3002}"
     if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ] && [ -n "$ANTHROPIC_BASE_URL$OPENAI_BASE_URL" ]; then
-      if command -v curl >/dev/null 2>&1; then
-        if ! curl -sf "http://host.docker.internal:${PROXY_PORT}/health" >/dev/null 2>&1; then
-          echo "WARNING: Credential proxy not reachable at host.docker.internal:${PROXY_PORT}" >&2
-          echo "Agent may fail to authenticate. Check proxy is running on host." >&2
+      # C7: Hard-fail with retry — proxy-dependent containers cannot succeed without it
+      PROXY_OK=false
+      for attempt in 1 2 3; do
+        if curl -sf "http://host.docker.internal:${PROXY_PORT}/health" >/dev/null 2>&1; then
+          PROXY_OK=true
+          break
         fi
+        sleep 1
+      done
+      if [ "$PROXY_OK" = "false" ]; then
+        echo "ERROR: Credential proxy not reachable at host.docker.internal:${PROXY_PORT} after 3 attempts" >&2
+        echo "This container requires the proxy for authentication. Start it on the host:" >&2
+        echo "  node \$BOARD/container/fb-credential-proxy.cjs &" >&2
+        exit 1
       fi
     fi
 

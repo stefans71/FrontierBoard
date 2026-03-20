@@ -42,13 +42,24 @@ Remove the lock in Step 6 (Post-Review) — **including on error/cancel paths**.
 ### Container mode setup
 
 If `isolation: container`:
+
+**C4: Set up cleanup trap immediately** — before any credential copying or container launches:
+```bash
+FB_BOARD="$BOARD"  # capture for trap (single-quoted trap body expands at execution time)
+trap '[ -n "$FB_BOARD" ] && rm -f "$FB_BOARD"/.board/board/*/.codex/auth.json; [ -n "$FB_BOARD" ] && rm -f "$FB_BOARD"/.board/.review-lock; [ -f "$FB_BOARD"/container/.fb-proxy.pid ] && node "$FB_BOARD"/container/fb-credential-proxy.cjs --stop 2>/dev/null' EXIT INT TERM HUP
+```
+Also sweep stale auth files from prior interrupted reviews:
+```bash
+find "$BOARD"/.board/board -name "auth.json" -path "*/.codex/*" -mmin +60 -delete 2>/dev/null
+```
+
 1. Verify the `frontierboard-agent` Docker image exists (`docker images frontierboard-agent`). If missing, build it: `$BOARD/container/build.sh`.
 2. **C8: Stale proxy handling** — Check PID file at `$BOARD/container/.fb-proxy.pid`. If it exists:
    - Read the PID and validate it's actually a proxy process (check `/proc/$PID/cmdline` for `fb-credential-proxy`)
    - If valid proxy running → reuse it
    - If stale PID (process dead or not a proxy) → remove PID file, start fresh
    - If no PID file → start fresh
-3. Start proxy if needed (only required for API-key-based agents — OAuth agents bypass the proxy): `node $BOARD/container/fb-credential-proxy.cjs &`. Wait 1 second, verify PID file exists and process is alive. If startup fails, surface the error before launching agents.
+3. Start proxy if needed (only required for API-key-based agents — OAuth agents bypass the proxy): `FB_PROXY_MAX_IDLE=7200 node $BOARD/container/fb-credential-proxy.cjs &`. The `MAX_IDLE=7200` (2 hours) keeps the proxy alive across all rounds including human deliberation pauses, while ensuring it self-terminates if the orchestrator dies (SIGKILL, OOM, reboot). Wait 1 second, verify PID file exists and process is alive. If startup fails, surface the error before launching agents.
 4. **C7: Verify proxy health** (only if proxy was started in Step 3) — `curl -sf http://$PROXY_HOST:$PROXY_PORT/health` and confirm response contains `"service":"fb-credential-proxy"` and the expected port. If verification fails, abort with a clear error. Note: proxy binds to Docker bridge IP (e.g., 10.0.0.1), not localhost. **Skip this step entirely for pure-OAuth setups where no proxy was started.**
 5. The proxy **must stay running across all review rounds** (Steps 2-5). Do NOT stop it between rounds.
 6. Stop the proxy in Step 6 (Post-Review) after all reports are collected: `node $BOARD/container/fb-credential-proxy.cjs --stop`. If the review is cancelled or fails partway, still stop the proxy.
@@ -59,13 +70,15 @@ Credentials are extracted fresh before every round — tokens may have been refr
 
 **Claude Code agents (OAuth/subscription):**
 ```bash
+# C6: Extract token and fail fast if empty — must be re-run before EACH round
 CLAUDE_TOKEN=$(node -e "
   const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
   if(!d.claudeAiOauth||!d.claudeAiOauth.accessToken){console.error('No Claude OAuth token found — run claude /login');process.exit(1)};
   console.log(d.claudeAiOauth.accessToken)
-")
+") || { echo "ERROR: Claude OAuth token extraction failed — run 'claude /login'"; exit 1; }
+[ -z "$CLAUDE_TOKEN" ] && { echo "ERROR: Claude OAuth token is empty — run 'claude /login' to authenticate"; exit 1; }
 ```
-If extraction fails, abort with: "Claude OAuth token not found — run `claude /login` to authenticate."
+**This extraction MUST be re-run before each round**, not once per review. Tokens may be refreshed between rounds. If extraction fails or returns empty, abort immediately — do not launch containers with an empty token.
 Pass to containers via `-e CLAUDE_CODE_OAUTH_TOKEN="$CLAUDE_TOKEN"`. Do NOT use the proxy for OAuth — the Anthropic API rejects third-party Bearer injection.
 
 **Claude Code agents (API key):** If `ANTHROPIC_API_KEY` is set in the environment, use the credential proxy instead (containers get `-e ANTHROPIC_BASE_URL=http://host.docker.internal:$PROXY_PORT -e ANTHROPIC_API_KEY=placeholder`).
