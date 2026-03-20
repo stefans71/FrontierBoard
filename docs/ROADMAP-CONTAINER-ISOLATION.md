@@ -1,6 +1,6 @@
 # Roadmap: Container Isolation (v2.0)
 
-**Status:** Phase 1 + Phase 2 + Phase 3a (FB-side) implemented. Phase 3b (NC-side integration) pending as a separate NanoClaw PR.
+**Status:** Phase 1 + Phase 2 implemented. Container mode is the recommended isolation mode.
 
 ---
 
@@ -40,64 +40,19 @@ Each containerized agent sees ONLY these paths:
 | Container Path | Host Path | Mode | Purpose |
 |---|---|---|---|
 | `/workspace/project` | `$PROJ` | `ro` | Project source code |
-| `/workspace/project/.env` | `/dev/null` | `ro` | Shadow secrets |
+| `/workspace/project/.env` | `/dev/null` | `ro` | Shadow secrets (conditional) |
 | `/workspace/agent/CLAUDE.md` | `{agent}/CLAUDE.md` | `ro` | Agent identity |
 | `/workspace/agent/inbox` | `{agent}/inbox` | `ro` | Brief and context |
 | `/workspace/agent/outbox` | `{agent}/outbox` | `rw` | Report output |
 | `/workspace/agent/contexts` | `{agent}/contexts` | `ro` | Domain context |
 | `/workspace/agent/learnings` | `{agent}/learnings` | `rw` | Persistent learnings |
-| `/home/node/.claude` | temp settings | `rw` | CLI settings bubble |
+| `/home/node/.claude` | agent settings | `rw` | CLI settings bubble |
 
 **NOT mounted:** sibling agent dirs, BOARD.md, REVIEW-LOG.md, `.ssh`, `.aws`, `.gnupg`, the FB repo itself.
 
 ### Container Image: `frontierboard-agent`
 
-One image, all CLIs. Entrypoint routes to the correct CLI based on `FB_CLI` env var.
-
-```dockerfile
-FROM node:22-slim
-
-# System deps (Chromium for agent-browser, git for code review)
-RUN apt-get update && apt-get install -y \
-    chromium fonts-liberation fonts-noto-cjk fonts-noto-color-emoji \
-    libgbm1 libnss3 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 \
-    curl git python3 pip \
-    && rm -rf /var/lib/apt/lists/*
-
-# All three CLIs
-RUN npm install -g @anthropic-ai/claude-code @openai/codex
-RUN pip install qwen-coder --break-system-packages
-
-# Workspace
-RUN mkdir -p /workspace/project /workspace/agent/{inbox,outbox,learnings,contexts}
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-RUN chown -R node:node /workspace /home/node
-USER node
-WORKDIR /workspace/agent
-ENTRYPOINT ["/app/entrypoint.sh"]
-```
-
-### Entrypoint
-
-```bash
-#!/bin/bash
-set -e
-case "$FB_CLI" in
-  claude)
-    FLAGS=""; [ "$FB_YOLO" = "true" ] && FLAGS="--dangerously-skip-permissions"
-    exec claude $FLAGS -p "$FB_PROMPT"
-    ;;
-  codex)
-    FLAGS=""; [ "$FB_YOLO" = "true" ] && FLAGS="--dangerously-bypass-approvals-and-sandbox"
-    exec codex exec $FLAGS "$FB_PROMPT"
-    ;;
-  qwen)
-    exec qwen-coder --prompt "$FB_PROMPT"
-    ;;
-esac
-```
+One image, all CLIs. Entrypoint routes to the correct CLI based on `FB_CLI` env var. See `container/Dockerfile` and `container/entrypoint.sh` for the current implementation.
 
 ### Invocation Commands
 
@@ -129,9 +84,9 @@ docker run -i --rm --name fb-pragmatist-$(date +%s) \
 
 ## Credential Proxy (Phase 2)
 
-Real API keys should never enter containers. NanoClaw solves this with a credential proxy:
+Real API keys should never enter containers. The credential proxy (`container/fb-credential-proxy.cjs`) solves this:
 
-1. Host runs proxy on port 3002 (3001 is NanoClaw's)
+1. Host runs proxy on Docker bridge IP (port 3002)
 2. Containers get `ANTHROPIC_BASE_URL=http://host.docker.internal:3002` + `ANTHROPIC_API_KEY=placeholder`
 3. Proxy intercepts requests, injects real credentials, forwards to API
 4. Containers never see real keys — not in env, files, or `/proc`
@@ -141,13 +96,13 @@ Multi-upstream proxy handles all three APIs:
 - `Authorization: Bearer` + OpenAI User-Agent -> OpenAI API
 - DashScope headers -> DashScope API
 
-**If NanoClaw is running:** reuse its proxy (port 3001) instead of starting a second one.
+**OAuth users bypass the proxy entirely** — Claude OAuth containers get `CLAUDE_CODE_OAUTH_TOKEN` env var, Codex ChatGPT OAuth uses native auth with copied `auth.json`. See Hard-Won Knowledge #10-12 in `setup/SKILL.md`.
 
 ---
 
 ## Setup Changes
 
-### Step 2b: Isolation Mode (new)
+### Step 2b: Isolation Mode
 
 > How should agents be isolated?
 >
@@ -163,41 +118,27 @@ Container mode skips board user creation entirely.
 
 ## Implementation Phases
 
-### Phase 1: Container MVP ✓ DONE
-- `container/Dockerfile` — node:22-slim + Chromium + Claude Code + Codex + agent-browser
-- `container/entrypoint.sh` — routes to correct CLI via `FB_CLI` env var
+### Phase 1: Container MVP — DONE
+- `container/Dockerfile` — node:22-slim + Chromium + Claude Code + Codex + agent-browser + ripgrep
+- `container/entrypoint.sh` — routes to correct CLI via `FB_CLI` env var, proxy health check with retry
 - `container/build.sh` — builds `frontierboard-agent:latest`
 - `setup/SKILL.md` Step 2b: isolation mode choice, Docker install if needed, image build
 - `setup/SKILL.md` Step 7: container invocation templates in BOARD.md
 - `run/SKILL.md`: verify image exists, use `docker run` when `isolation: container`
-- MVP: API key passed directly via `-e` (no proxy yet)
 
-### Phase 2: Credential Proxy ✓ DONE
+### Phase 2: Credential Proxy — DONE
 - `container/fb-credential-proxy.cjs` — standalone Node.js proxy, zero dependencies
-- Multi-upstream: Anthropic (x-api-key + OAuth), OpenAI (Bearer), DashScope (Bearer)
-- Auto-detects upstream from request headers (x-api-key → Anthropic, OpenAI user-agent → OpenAI)
+- Multi-upstream: Anthropic (x-api-key + OAuth rejection), OpenAI (Bearer), DashScope (Bearer)
+- Per-request credential resolution (tokens refreshed between rounds)
 - PID file management with `--stop` flag for clean shutdown
-- Detects and reuses NanoClaw's proxy (port 3001) when available
-- Container invocation templates use `ANTHROPIC_BASE_URL=http://host.docker.internal:$PROXY_PORT` with `ANTHROPIC_API_KEY=placeholder`
-- Real keys never enter containers — not in env, files, or `/proc`
-
-### Phase 3a: NanoClaw Convergence (FB-side) ✓ DONE
-- Unified container image supports both FB (`AGENT_MODE=fb`) and NanoClaw (`AGENT_MODE=nc`) modes
-- Single Dockerfile with shared system deps, CLIs, and workspace directories
-- Unified entrypoint dispatches to CLI (FB) or agent-runner (NC) based on mode
-- Convergence documentation at `docs/CONVERGENCE.md`
-
-### Phase 3b: NanoClaw Convergence (NC-side) — PENDING
-- NanoClaw-side changes (container-runner.ts, build.sh) are a separate PR in the NC repo
-- Required: update `container-runner.ts` to pass `AGENT_MODE=nc`, mount at `/app:ro`
-- Required: test NC mode end-to-end with real agent-runner
-- Required: validate proxy reuse (Q10)
+- OAuth bypass: Claude OAuth via env var, Codex ChatGPT OAuth via native auth
+- Container invocation templates use proxy for API key mode, bypass for OAuth mode
 
 ### Repo Strategy
 
 Same repo, semantic versioning. Container mode is additive — `isolation: container | bare` in BOARD.md. No breaking changes, no new repo needed.
 
-- v1.x = bare mode only (current)
+- v1.x = bare mode only
 - v2.0 = adds container mode as recommended option
 
 ---
@@ -210,19 +151,3 @@ Container mode eliminates the primary threat models that the [Security Guard Age
 - Agents can't access credentials (proxy pattern, or simply not mounted)
 
 The security guard's v1 (post-hoc reviewer) becomes less critical. Its v2 (real-time monitor) may still be useful for bare mode installs or for monitoring what agents do within their allowed scope.
-
----
-
-## Key Reference: NanoClaw's Container Model
-
-NanoClaw (`github.com/qwibitai/nanoclaw`) has a production-grade implementation of this pattern:
-
-| Component | NanoClaw File | FB Equivalent |
-|---|---|---|
-| Container spawner | `src/container-runner.ts` | `run/SKILL.md` invocation commands |
-| Credential proxy | `src/credential-proxy.ts` | `container/fb-credential-proxy.cjs` |
-| Mount security | `src/mount-security.ts` | Hardcoded per-agent mounts (simpler) |
-| Container image | `container/Dockerfile` | `container/Dockerfile` |
-| Group isolation | `src/group-folder.ts` | Agent directory structure |
-
-NanoClaw's model is more complex (IPC, streaming output, session management) because it handles long-lived chat conversations. FB agents are simpler — run a prompt, write a report, exit.

@@ -74,8 +74,8 @@ Set `$PROJ` (project path) and `$BOARD` (FrontierBoard clone — current directo
 **Global mode detection:** If `$BOARD` is under `~/.frontierboard/`, this is a global install. Check if agents already exist at `$BOARD/.board/board/`. If they do, skip Steps 2–6 (board already built) and jump to Step 7 to wire up the new project. If agents don't exist yet, this is a first-time global setup — run all steps normally, then wire the project.
 
 Silently detect integration mode by checking `$PROJ`:
-- **nanoclaw** — has `src/index.ts` + `container/build.sh` + `groups/`
-- **claude-project** — has `.claude/` but not NanoClaw
+- **fb-project-bridge** — has its own AI agent system (`src/index.ts` + `container/build.sh` + `groups/`, or similar multi-agent project structure). Needs a bridge script to trigger FB reviews from within the project.
+- **claude-project** — has `.claude/` but no agent system of its own
 - **standalone** — no AI tooling found
 - **global** — `$BOARD` is under `~/.frontierboard/` (detected above)
 
@@ -315,7 +315,7 @@ If no board user, omit `sudo -u`. If supervised mode, omit `--dangerously-skip-p
 
 ### Integration bridge
 
-**nanoclaw:** Create `$BOARD/.board/bridge/run-review.sh` (executable) that accepts a brief, populates each agent's `inbox/brief.md` (not a dead `board/inbox/` path), switches to board user if root, runs the orchestrator. The bridge must include `unset CLAUDECODE` before any Claude invocation. Create a NanoClaw skill at `$PROJ/.claude/skills/board-review/SKILL.md` that tells NanoClaw Claude how to invoke the bridge with timing estimates and a polling pattern. Add bridge section to BOARD.md.
+**fb-project-bridge:** Create `$BOARD/.board/bridge/run-review.sh` (executable) that accepts a brief, populates each agent's `inbox/brief.md` (not a dead `board/inbox/` path), switches to board user if root, runs the orchestrator. The bridge must include `unset CLAUDECODE` before any Claude invocation. Create a skill at `$PROJ/.claude/skills/board-review/SKILL.md` that tells the project's Claude how to invoke the bridge with timing estimates and a polling pattern. Add bridge section to BOARD.md.
 
 **claude-project:** Create a skill at `$PROJ/.claude/skills/board-review/SKILL.md` (or `frontierboard-review` if name is taken) that triggers the board from any Claude session. Include timing estimates, background launch with nohup, polling, and cleanup. Check for existing skill — if it's a previous FrontierBoard install, offer to update; if unrelated, use alternate name. Add integration section to BOARD.md. Tell the user what was created and how to use it.
 
@@ -360,7 +360,7 @@ If you discovered workarounds or fixes during setup that aren't in upstream, ask
 
 Name each agent, their CLI, and role. Show `$PROJ` and `$BOARD/.board/` paths. Give concrete next steps matching the integration mode:
 
-- **nanoclaw**: "Message NanoClaw: 'Review the auth code I just wrote.'" — it happens in the background.
+- **fb-project-bridge**: "Your project can now trigger board reviews. Run the bridge or use the `/board-review` skill from within your project's Claude session."
 - **claude-project**: "Type `/board-review` or describe what to review."
 - **standalone**: "`cd $BOARD/.board && claude` then describe what to review or `/brief` then `/run`."
 - **global**: "Type `/frontierboard` from any project session, or `cd ~/.frontierboard/FrontierBoard && claude` and tell it which project to review."

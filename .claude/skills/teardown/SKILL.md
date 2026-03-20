@@ -15,7 +15,7 @@ Read `.board/board/BOARD.md` to understand the installation:
 - Board path and project path
 - Isolation mode (`container` or `bare`)
 - Board user (if created — bare mode only)
-- Integration mode (nanoclaw, claude-project, standalone, global)
+- Integration mode (fb-project-bridge, claude-project, standalone, global)
 - Agent list
 
 If no BOARD.md found, check if `.board/` exists at all. If nothing exists, tell the user there's nothing to tear down.

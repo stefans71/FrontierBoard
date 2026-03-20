@@ -1,6 +1,5 @@
-# Unified AI Agent Container
-# Serves both FrontierBoard (board review agents) and NanoClaw (chat agents)
-# Mode is selected via AGENT_MODE env var: "fb" (default) or "nc"
+# FrontierBoard Agent Container
+# Each agent runs in its own container with read-only project access.
 
 FROM node:22-slim
 
@@ -32,26 +31,21 @@ RUN apt-get update && apt-get install -y \
 ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Install CLIs globally (shared across both modes)
+# Install CLIs globally
 # Claude Code + agent-browser (Anthropic)
 RUN npm install -g @anthropic-ai/claude-code agent-browser
 # Codex (OpenAI)
 RUN npm install -g @openai/codex
 
-# Workspace directories (unified — each mode uses its own subset)
+# Workspace directories
 RUN mkdir -p \
     /workspace/project \
     /workspace/agent/inbox \
     /workspace/agent/outbox \
     /workspace/agent/learnings \
-    /workspace/agent/contexts \
-    /workspace/group \
-    /workspace/global \
-    /workspace/ipc/messages \
-    /workspace/ipc/tasks \
-    /workspace/ipc/input
+    /workspace/agent/contexts
 
-# Entrypoint: unified dispatcher
+# Entrypoint
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
@@ -60,6 +54,7 @@ RUN chown -R node:node /workspace /home/node && chmod 755 /home/node
 USER node
 
 # C2: Allow git operations on read-only project mounts owned by different uid
+# Safe: container is ephemeral, single-purpose, project mount is read-only
 RUN git config --global --add safe.directory '*'
 WORKDIR /workspace/agent
 

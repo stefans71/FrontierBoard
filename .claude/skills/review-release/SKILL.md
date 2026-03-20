@@ -21,7 +21,7 @@ Three modes — detect from what the user says:
 
 ## Step 1: Detect Mode and Get the Target
 
-> What's the GitHub repo you want reviewed? (e.g. `qwibitai/nanoclaw`)
+> What's the GitHub repo you want reviewed? (e.g. `owner/repo-name`)
 >
 > And what are you trying to find out?
 > 1. Bugs and improvements to contribute back (static diff review)

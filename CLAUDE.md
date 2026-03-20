@@ -34,7 +34,7 @@ Defined in `board/BOARD.md` after setup. Source of truth for agents, CLIs, model
 
 Agents can run in Docker containers (`isolation: container` in BOARD.md). Each agent sees only its own inbox/outbox and the project source (read-only). A credential proxy on the host injects API keys — containers never see real credentials.
 
-The container image (`frontierboard-agent:latest`) is convergence-ready: it supports both FrontierBoard (`AGENT_MODE=fb`) and NanoClaw (`AGENT_MODE=nc`) modes. See `docs/CONVERGENCE.md` for architecture details.
+The container image (`frontierboard-agent:latest`) runs each agent in isolation. See `docs/ROADMAP-CONTAINER-ISOLATION.md` for architecture details.
 
 ---
 
