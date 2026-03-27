@@ -64,7 +64,7 @@ After user confirms:
 
 ## Step 5: Remove Board User (if exists)
 
-Only if a board user was created during setup (bare mode):
+Only if a board user was created during setup:
 
 > A system user `$BOARD_USER` was created for agent isolation. Remove it?
 > This will delete the user account and its sudoers entry. Home directory is NOT deleted.

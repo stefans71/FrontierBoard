@@ -169,7 +169,7 @@ graph TD
 
 <br>
 
-Each agent runs in its own directory under a dedicated board user. Blind review is enforced by directory permissions and agent instructions — agents cannot see each other's work before writing their own report.
+Each agent runs in its own directory under a dedicated board user. Blind review is enforced by agent instructions — each agent is told not to read sibling directories before writing its own report. See [Security Posture](docs/SECURITY-POSTURE.md) for what this does and doesn't guarantee.
 
 **Not just code.** Point the board at architecture decisions, business plans, hiring briefs, financial models, legal documents. The agents have stable thinking styles that apply to any domain.
 
@@ -231,9 +231,9 @@ Each agent runs in its own directory under a dedicated board user. Blind review 
 
 ## <img src="assets/svg/heading-isolation-security.svg" alt="Isolation & Security" height="28">
 
-- **Board user isolation** — agents run as a dedicated OS user (`$BOARD_USER`) with restricted permissions. Write isolation between agents and the host is enforced at the OS level.
+- **Dedicated board user** — agents run as a separate OS user (`$BOARD_USER`), isolating agent writes from the host. Agents share this user, so inter-agent read isolation depends on instruction compliance, not OS enforcement.
 
-- **Blind review by design** — agents run in separate directories and are instructed not to read sibling agents' work. Blind review is enforced by directory structure and agent instructions.
+- **Blind review by convention** — each agent is instructed not to read sibling directories. This is convention-enforced, not technically enforced. For the full threat model, see [Security Posture](docs/SECURITY-POSTURE.md).
 
 - **No framework, no runtime** — FrontierBoard is just skill files your Claude reads. No code runs before you trust it. Inspect everything.
 
