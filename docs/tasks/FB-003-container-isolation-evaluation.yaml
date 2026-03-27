@@ -81,36 +81,64 @@ gates:
     date: 2026-03-27
 
   board_review:
-    status: pending
-    rounds: 0
-    findings: []
-    date: null
+    status: done
+    rounds: 4
+    findings:
+      - "Unanimous DEMOTE in R1, owner escalated to REMOVE"
+      - "R2: 3 independent implementation plans"
+      - "R3: Deliberation — 2 BLOCKs (security posture, credential flow)"
+      - "R4: Confirmation — 2 SIGN OFF, 1 BLOCK (README overclaim) → fixed → 3/3 SIGN OFF"
+    date: 2026-03-27
 
   fix:
-    status: pending
-    files_modified: []
+    status: done
+    files_modified:
+      - container/Dockerfile (deleted)
+      - container/entrypoint.sh (deleted)
+      - container/fb-credential-proxy.cjs (deleted)
+      - container/build.sh (deleted)
+      - docs/ROADMAP-CONTAINER-ISOLATION.md (deleted)
+      - docs/SECURITY-POSTURE.md (created)
+      - .claude/skills/setup/SKILL.md
+      - .claude/skills/run/SKILL.md
+      - .claude/skills/debug/SKILL.md
+      - .claude/skills/debug-bug/SKILL.md
+      - .claude/skills/teardown/SKILL.md
+      - .claude/skills/new-agent/SKILL.md
+      - .claude/skills/agents-yolo/SKILL.md
+      - .claude/skills/review-release/SKILL.md
+      - CLAUDE.md
+      - README.md
+      - docs/REVIEW-SOP.md
+      - docs/ROADMAP-SECURITY-GUARD.md
     regression_test: false
-    date: null
+    date: 2026-03-27
 
   smoke_test:
-    status: pending
-    method: null
-    result: null
-    all_agents_pass: false
+    status: done
+    method: "bare-mode sequential + parallel, 3 agents, 2 installations (review clone + global)"
+    result: "6/6 agents passed across both installations"
+    all_agents_pass: true
     skipped_reason: null
-    date: null
+    date: 2026-03-27
 
   code_review:
-    status: pending
-    rounds: 0
-    findings: []
-    date: null
+    status: done
+    rounds: 1
+    findings:
+      - "R4 Systems Thinker BLOCK: README overclaimed isolation — fixed in e143b25"
+    date: 2026-03-27
 
   cleanup:
-    status: pending
-    artifacts_removed: []
-    date: null
+    status: done
+    artifacts_removed:
+      - container/Dockerfile
+      - container/entrypoint.sh
+      - container/fb-credential-proxy.cjs
+      - container/build.sh
+      - docs/ROADMAP-CONTAINER-ISOLATION.md
+    date: 2026-03-27
 
   final_signoff:
-    status: pending
-    date: null
+    status: approved
+    date: 2026-03-27

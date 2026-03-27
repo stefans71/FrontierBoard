@@ -20,7 +20,7 @@
       "id": "FB-003",
       "type": "debt",
       "title": "Evaluate container isolation cost vs benefit — Docker adds complexity for multi-CLI compatibility",
-      "status": "open",
+      "status": "closed",
       "severity": "major",
       "found": "2026-03-27",
       "source": "user report — Codex sandbox conflicts, Gemini sandbox conflicts, Qwen Docker limitations",

@@ -66,9 +66,11 @@ By using FrontierBoard in bare mode, you accept:
 
 If your threat model requires technical enforcement of agent isolation (shared infrastructure, multi-tenant hosts, sensitive review artifacts), consider:
 
-- Running each agent as a separate UNIX user (heavy but effective)
-- Using container orchestration external to FrontierBoard
-- Restricting the board user with AppArmor or seccomp profiles
-- Network namespaces for the board user
+| Approach | Effort | What It Provides |
+|----------|--------|-----------------|
+| **Separate UNIX user per agent** | Medium (2-4 hours — create N users, N sudoers entries, per-agent credential copies) | Prevents inter-agent read access. Strongest practical option. |
+| **AppArmor/seccomp profiles** | Medium-High (4-8 hours — write + test profile, per-OS tuning) | Restricts filesystem reads and network access for the board user. |
+| **Network namespaces** | High (6+ hours — namespace setup per invocation, routing) | Network-level isolation. Doesn't address filesystem or process isolation. |
+| **External container orchestration** | High (8+ hours — bring your own Docker/Podman, not FrontierBoard-managed) | Full OS-level isolation. Note: some CLIs (Qwen, future Gemini) may not support containers. |
 
 These are not built into FrontierBoard. They are host-level controls you can layer on top.
