@@ -104,7 +104,7 @@ Never say "do not re-raise unless triggered" — agents interpret this as "ignor
 Agents reviewing a diff need to understand what the diff is changing and why. Agents reviewing a plan need to understand the system the plan operates in. Always ask: what context would a knowledgeable new reviewer need to evaluate this artifact? Include it.
 
 Examples:
-- Reviewing a proxy change? Include the container architecture, how agents reach the proxy, what CLIs are involved.
+- Reviewing an auth change? Include how credentials reach agents, what CLIs are involved.
 - Reviewing a deployment plan? Include the current state, what exists, what's changing, what's staying.
 - Reviewing a business decision? Include the constraints, stakeholders, prior commitments.
 

@@ -24,7 +24,7 @@ If the user hasn't specified depth:
 
 ## Step 1: Read the Board
 
-Read `.board/board/BOARD.md` for agent list, invocation commands, isolation mode (`container` or `bare`), board user, parallelism pattern.
+Read `.board/board/BOARD.md` for agent list, invocation commands, board user, parallelism pattern.
 
 **Agent count validation:** For Standard mode, verify at least 3 agents are configured. If fewer than 3, warn the user:
 
@@ -49,61 +49,18 @@ Before starting, check for `$BOARD/.board/.review-lock`. If it exists:
 Create the lock at start: `echo "{project}|$$|$(date -Iseconds)" > $BOARD/.board/.review-lock`
 Remove the lock in Step 6 (Post-Review) — **including on error/cancel paths**.
 
-### Container mode setup
+### Error cleanup trap
 
-If `isolation: container`:
-
-**C4: Set up cleanup trap immediately** — before any credential copying or container launches:
+Set up a trap to clean the lockfile on error/cancel:
 ```bash
-FB_BOARD="$BOARD"  # capture for trap (single-quoted trap body expands at execution time)
-trap '[ -n "$FB_BOARD" ] && rm -f "$FB_BOARD"/.board/board/*/.codex/auth.json; [ -n "$FB_BOARD" ] && rm -f "$FB_BOARD"/.board/.review-lock; [ -f "$FB_BOARD"/container/.fb-proxy.pid ] && node "$FB_BOARD"/container/fb-credential-proxy.cjs --stop 2>/dev/null' EXIT INT TERM HUP
-```
-Also sweep stale auth files from prior interrupted reviews:
-```bash
-find "$BOARD"/.board/board -name "auth.json" -path "*/.codex/*" -mmin +60 -delete 2>/dev/null
+trap 'rm -f $BOARD/.board/.review-lock' EXIT INT TERM HUP
 ```
 
-1. Verify the `frontierboard-agent` Docker image exists (`docker images frontierboard-agent`). If missing, build it: `$BOARD/container/build.sh`.
-2. **C8: Stale proxy handling** — Check PID file at `$BOARD/container/.fb-proxy.pid`. If it exists:
-   - Read the PID and validate it's actually a proxy process (check `/proc/$PID/cmdline` for `fb-credential-proxy`)
-   - If valid proxy running → reuse it
-   - If stale PID (process dead or not a proxy) → remove PID file, start fresh
-   - If no PID file → start fresh
-3. Start proxy if needed (only required for API-key-based agents — OAuth agents bypass the proxy): `FB_PROXY_MAX_IDLE=7200 node $BOARD/container/fb-credential-proxy.cjs &`. The `MAX_IDLE=7200` (2 hours) keeps the proxy alive across all rounds including human deliberation pauses, while ensuring it self-terminates if the orchestrator dies (SIGKILL, OOM, reboot). Wait 1 second, verify PID file exists and process is alive. If startup fails, surface the error before launching agents.
-4. **C7: Verify proxy health** (only if proxy was started in Step 3) — `curl -sf http://$PROXY_HOST:$PROXY_PORT/health` and confirm response contains `"service":"fb-credential-proxy"` and the expected port. If verification fails, abort with a clear error. Note: proxy binds to Docker bridge IP (e.g., 10.0.0.1), not localhost. **Skip this step entirely for pure-OAuth setups where no proxy was started.**
-5. The proxy **must stay running across all review rounds** (Steps 2-5). Do NOT stop it between rounds.
-6. Stop the proxy in Step 6 (Post-Review) after all reports are collected: `node $BOARD/container/fb-credential-proxy.cjs --stop`. If the review is cancelled or fails partway, still stop the proxy.
+### Migration guard
 
-### Container mode credentials (before EACH round)
+If BOARD.md contains `isolation: container`, error immediately:
 
-Credentials are extracted fresh before every round — tokens may have been refreshed between rounds.
-
-**Claude Code agents (OAuth/subscription):**
-```bash
-# C6: Extract token and fail fast if empty — must be re-run before EACH round
-CLAUDE_TOKEN=$(node -e "
-  const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
-  if(!d.claudeAiOauth||!d.claudeAiOauth.accessToken){console.error('No Claude OAuth token found — run claude /login');process.exit(1)};
-  console.log(d.claudeAiOauth.accessToken)
-") || { echo "ERROR: Claude OAuth token extraction failed — run 'claude /login'"; exit 1; }
-[ -z "$CLAUDE_TOKEN" ] && { echo "ERROR: Claude OAuth token is empty — run 'claude /login' to authenticate"; exit 1; }
-```
-**This extraction MUST be re-run before each round**, not once per review. Tokens may be refreshed between rounds. If extraction fails or returns empty, abort immediately — do not launch containers with an empty token.
-Pass to containers via `-e CLAUDE_CODE_OAUTH_TOKEN="$CLAUDE_TOKEN"`. Do NOT use the proxy for OAuth — the Anthropic API rejects third-party Bearer injection.
-
-**Claude Code agents (API key):** If `ANTHROPIC_API_KEY` is set in the environment, use the credential proxy instead (containers get `-e ANTHROPIC_BASE_URL=http://host.docker.internal:$PROXY_PORT -e ANTHROPIC_API_KEY=placeholder`).
-
-**Codex agents (ChatGPT OAuth):**
-```bash
-# Copy auth from the user that last authenticated Codex
-CODEX_AGENT_DIR=$BOARD/.board/board/$AGENT_NAME/.codex
-for src in /home/$BOARD_USER/.codex/auth.json $HOME/.codex/auth.json; do
-  [ -f "$src" ] && { cp "$src" "$CODEX_AGENT_DIR/auth.json"; chmod 600 "$CODEX_AGENT_DIR/auth.json"; break; }
-done
-```
-Do NOT proxy Codex requests — ChatGPT OAuth tokens are scoped for ChatGPT's internal API, not `api.openai.com`. The proxy rewrites to the public API where these tokens lack the `api.responses.write` scope. Let Codex handle its own auth natively.
-
-**Codex agents (API key):** If `OPENAI_API_KEY` is set, use the credential proxy instead (containers get `-e OPENAI_BASE_URL=http://host.docker.internal:$PROXY_PORT -e OPENAI_API_KEY=placeholder`).
+> Container mode has been removed. Re-run /setup or change isolation to bare in BOARD.md.
 
 ---
 
@@ -182,13 +139,6 @@ If all sign off → complete. If any block:
 **Always run this step, even on error/cancel.**
 
 Remove the review lockfile: `rm -f $BOARD/.board/.review-lock`
-
-If `isolation: container`:
-1. Stop the credential proxy: `node $BOARD/container/fb-credential-proxy.cjs --stop`
-2. Clean up copied credential files (contain OAuth tokens — must not persist):
-   ```bash
-   rm -f $BOARD/.board/board/*/.codex/auth.json
-   ```
 
 Append to `.board/board/REVIEW-LOG.md`: what was reviewed, date, mode, rounds, agents, FIX NOW table, DEFER table with triggers, INFO items, key decisions.
 

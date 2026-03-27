@@ -13,8 +13,7 @@ Remove a FrontierBoard installation cleanly. Confirm before each destructive act
 
 Read `.board/board/BOARD.md` to understand the installation:
 - Board path and project path
-- Isolation mode (`container` or `bare`)
-- Board user (if created — bare mode only)
+- Board user (if created)
 - Integration mode (fb-project-bridge, claude-project, standalone, global)
 - Agent list
 
@@ -48,8 +47,7 @@ List everything that was created during setup:
 > **Board files:** `.board/` directory (agents, reports, review log, briefs)
 > **Integration skill:** `$PROJ/.claude/skills/board-review/SKILL.md` (if exists)
 > **Global skill:** `~/.claude/skills/frontierboard/SKILL.md` (if global install)
-> **Board user:** `$BOARD_USER` system account + sudoers entry (if bare mode created one)
-> **Container artifacts:** Docker image + stopped containers (if container mode)
+> **Board user:** `$BOARD_USER` system account + sudoers entry (if created)
 > **Gitignore entries:** FrontierBoard lines in `.gitignore`
 
 ---
@@ -64,23 +62,7 @@ After user confirms:
 
 ---
 
-## Step 4b: Remove Container Artifacts (if isolation: container)
-
-Only if the board was using container mode:
-
-> Container mode was active. Clean up Docker artifacts?
-> - Remove `frontierboard-agent` Docker image
-> - Stop and remove any running `fb-*` containers
-
-If confirmed:
-1. Stop the credential proxy: `node $BOARD/container/fb-credential-proxy.cjs --stop`
-2. Stop running containers: `docker ps -q --filter "name=fb-" | xargs -r docker stop`
-3. Remove stopped containers: `docker container ls -a -q --filter "name=fb-" | xargs -r docker rm`
-4. Remove image: `docker rmi frontierboard-agent:latest`
-
----
-
-## Step 5: Remove Board User (if exists — bare mode only)
+## Step 5: Remove Board User (if exists)
 
 Only if a board user was created during setup (bare mode):
 

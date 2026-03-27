@@ -28,7 +28,7 @@
 
 ---
 
-> **This project was reviewed by its own board** — three agents found 10 critical issues across credential handling, container isolation, and review process integrity. All fixed. [See the review.](docs/tasks/FB-000-oauth-credential-fix.yaml)
+> **This project was reviewed by its own board** — three agents found 10 critical issues across credential handling and review process integrity. All fixed. [See the review.](docs/tasks/FB-000-oauth-credential-fix.yaml)
 
 </div>
 
@@ -54,7 +54,7 @@ Disagreements are signal, not noise.
 
 ## <img src="assets/svg/heading-what-you-get.svg" alt="What You Get" height="28">
 
-Real output from a board review of FrontierBoard's own credential proxy:
+Real output from a board review of FrontierBoard's own architecture:
 
 ```mermaid
 graph LR
@@ -101,9 +101,9 @@ Each finding has a severity, agent consensus, and a concrete fix. Agents that di
 **Just describe what you want reviewed — Claude handles the rest:**
 
 ```
-You: "Review the credential proxy changes"
+You: "Review the auth handling changes"
 
-Claude: [writes brief, runs 3 agents in parallel Docker containers]
+Claude: [writes brief, runs 3 agents in parallel]
 
 Claude: "3 agents found 10 issues. 6 are FIX NOW (all agree),
          2 are DEFER (with triggers), 2 are INFO."
@@ -169,9 +169,7 @@ graph TD
 
 <br>
 
-Each agent runs in its own **Docker container** with read-only access to your project.
-
-They can't see each other's directories, can't access your filesystem, and never see your API keys — a credential proxy on the host handles authentication transparently.
+Each agent runs in its own directory under a dedicated board user. Blind review is enforced by directory permissions and agent instructions — agents cannot see each other's work before writing their own report.
 
 **Not just code.** Point the board at architecture decisions, business plans, hiring briefs, financial models, legal documents. The agents have stable thinking styles that apply to any domain.
 
@@ -187,7 +185,7 @@ They can't see each other's directories, can't access your filesystem, and never
 | Command | What it does |
 |---------|-------------|
 | `/project-init` | Interviews you, writes a filing cabinet (settings, CLAUDE.md, spec, tasks) for new or existing projects |
-| `/setup` | Builds the board — reads your project, creates agents, handles CLI auth, Docker, isolation |
+| `/setup` | Builds the board — reads your project, creates agents, handles CLI auth |
 | `/new-agent` | Adds a new agent to an existing board |
 
 ### Review
@@ -195,13 +193,13 @@ They can't see each other's directories, can't access your filesystem, and never
 |---------|-------------|
 | `/brief` | Sets context for a review — detects domain, writes context, populates inboxes |
 | `/run` | Runs all agents in parallel, collects reports, synthesises findings (4-round SOP) |
-| `/review-release` | Reviews a GitHub repo — static analysis, safety verdict, or full build review in Docker |
+| `/review-release` | Reviews a GitHub repo — static analysis, safety verdict, or full build review |
 
 ### Manage
 | Command | What it does |
 |---------|-------------|
 | `/agents-yolo` | Toggles between full autonomy and supervised mode for all agents |
-| `/debug` | Diagnoses board issues — container failures, auth problems, proxy issues |
+| `/debug` | Diagnoses board issues — auth problems, agent errors, review failures |
 | `/debug-bug` | Bug fix lifecycle with quality gates — investigate, classify, board review, fix, test, ship |
 | `/teardown` | Removes a FrontierBoard installation cleanly |
 
@@ -216,7 +214,6 @@ They can't see each other's directories, can't access your filesystem, and never
 | Requirement | Details |
 |-------------|---------|
 | **[Claude Code](https://claude.ai/code)** | Required — this is how you interact with the board |
-| **Docker** | Recommended for container isolation — setup installs it if needed |
 | **Frontier model CLIs** | You choose which models sit on your board. Claude installs them during `/setup` |
 
 **Supported CLIs** (install as many as you want):
@@ -234,13 +231,15 @@ They can't see each other's directories, can't access your filesystem, and never
 
 ## <img src="assets/svg/heading-isolation-security.svg" alt="Isolation & Security" height="28">
 
-- **Container isolation** — each agent runs in its own Docker container. Agents physically cannot see each other's work or access your filesystem beyond the project source (read-only).
+- **Board user isolation** — agents run as a dedicated OS user (`$BOARD_USER`) with restricted permissions. Write isolation between agents and the host is enforced at the OS level.
 
-- **Credential proxy** — API keys never enter containers. A proxy on the host injects credentials transparently. Containers get placeholder keys.
+- **Blind review by design** — agents run in separate directories and are instructed not to read sibling agents' work. Blind review is enforced by directory structure and agent instructions.
 
 - **No framework, no runtime** — FrontierBoard is just skill files your Claude reads. No code runs before you trust it. Inspect everything.
 
-- **Blind review enforced at OS level** — in container mode, there's no way for agents to peek at each other's reports, even in YOLO mode.
+- **Ephemeral sessions** — every agent invocation is a fresh session with zero memory. No state persists between rounds.
+
+For a detailed breakdown of what bare mode protects and what it doesn't, see [Security Posture](docs/SECURITY-POSTURE.md).
 
 <br>
 
@@ -267,8 +266,7 @@ No framework. No wizard. No dependency tree. Just your Claude reading a skill fi
 <p>
   <img src="https://img.shields.io/badge/Claude_Code-Anthropic-orange?style=for-the-badge&logo=anthropic&logoColor=white" />
   <img src="https://img.shields.io/badge/Codex-OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white" />
-  <img src="https://img.shields.io/badge/Docker-Container_Isolation-2496ED?style=for-the-badge&logo=docker&logoColor=white" />
-  <img src="https://img.shields.io/badge/Node.js-Credential_Proxy-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" />
+  <img src="https://img.shields.io/badge/Qwen-Alibaba-blue?style=for-the-badge" />
 </p>
 
 ---

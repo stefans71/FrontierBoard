@@ -13,7 +13,7 @@ Three modes — detect from what the user says:
 
 **Mode B — Safety review:** Is this repo safe to install? Static analysis only — do not run code you're evaluating for safety.
 
-**Mode C — Full build review:** Clone, install, run tests, capture failures. The patch log is the primary artifact. **Requires Docker** — all install/build steps run inside a container to prevent untrusted code from accessing the host filesystem. If Docker is not available, refuse Mode C and suggest Mode B (safety review) instead.
+**Mode C — Full build review:** Clone, install, run tests, capture failures. The patch log is the primary artifact. **Requires Docker** — all install/build steps run inside a container to prevent untrusted code from accessing the host filesystem. If Docker is not available, refuse Mode C and suggest Mode B (safety review) instead. <!-- Note: Docker here is for sandboxing untrusted build code, not agent isolation. Do not remove. -->
 
 **Entry point:** Board agents must exist before running this skill. If no agents exist yet, run `/setup` first — it creates the agents and board structure. Then come back here for the actual review.
 

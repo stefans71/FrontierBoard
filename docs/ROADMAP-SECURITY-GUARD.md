@@ -48,16 +48,20 @@ A security guard agent that monitors other board agents when they run in YOLO mo
 - `.claude/skills/new-agent/SKILL.md` — Support "security guard" as an agent type
 - New: daemon/cron configuration for real-time monitoring (v2)
 
-## Relationship to Container Isolation
+## Relationship to Bare Mode Isolation
 
-See [ROADMAP-CONTAINER-ISOLATION.md](ROADMAP-CONTAINER-ISOLATION.md). Container mode (v2.0) eliminates the primary threat models this guard was designed for:
+Container isolation was removed in v3.0 (see `git tag v2.0-last-container-support` for the last container-capable commit). FrontierBoard now runs agents in bare mode only — as a dedicated board user with directory-level permissions.
 
-- Agents can't read sibling outboxes (not mounted) — blind review enforced at OS level
-- Agents can't walk the filesystem (container boundary)
-- Agents can't access credentials (proxy pattern)
+This makes the security guard **more relevant**, not less:
 
-With container isolation, the v1 post-hoc reviewer becomes less critical. The v2 real-time monitor may still be useful for bare mode installs or for monitoring what agents do within their allowed scope (e.g., an agent writing unexpected files to its outbox).
+- Agents share the board user and CAN read sibling outboxes if they ignore instructions
+- Agents have unrestricted network access
+- Agents hold real credentials (not proxied placeholders)
+
+The v1 post-hoc reviewer is a practical mitigation for blind review enforcement in bare mode. The v2 real-time monitor would provide stronger guarantees.
+
+See [Security Posture](SECURITY-POSTURE.md) for the full bare-mode threat model.
 
 ## When to Build
 
-After container isolation (v2.0) is implemented. If container mode ships first, re-evaluate whether the guard is still needed — it may only apply to bare mode installs.
+This is now higher priority than when container mode existed. Consider building v1 (post-hoc reviewer) as the next feature — it's the cheapest way to add verification that blind review was respected.

@@ -1,0 +1,116 @@
+id: FB-003
+title: "Evaluate container isolation cost vs benefit — Docker adds complexity for multi-CLI compatibility"
+type: debt
+severity: major
+reported: 2026-03-27
+status: in-progress
+
+trigger: null
+
+gates:
+  investigation:
+    status: done
+    root_cause: |
+      Container isolation was designed to enforce blind review via OS-level boundaries
+      (agents can't read sibling outboxes, can't walk host filesystem, can't see credentials).
+      However, the implementation has accumulated significant complexity:
+
+      COMPLEXITY COSTS:
+      1. Credential proxy (fb-credential-proxy.cjs) — 460 lines of proxy code to keep API keys
+         out of containers. Multi-upstream routing, OAuth detection, per-request credential
+         resolution, idle timer, PID management, health checks.
+      2. OAuth workarounds — Claude OAuth can't be proxied (HWK #10), credentials.json can't
+         be mounted (HWK #11), Codex ChatGPT OAuth needs native auth not proxy (HWK #12).
+         Three separate auth paths for what was supposed to be one proxy.
+      3. Conditional .env masking (HWK #13) — Docker fails if .env doesn't exist, requires
+         runtime guard on every invocation.
+      4. CLI settings chown (HWK #14) — Container uid 1000 needs write access to .codex/
+         and .claude/ dirs. Extra orchestration step.
+      5. Docker image management — 500MB+ image with Chromium, three CLIs, system deps.
+         No version tagging. Rebuild required for CLI updates.
+      6. Entrypoint routing — proxy health check with 3 retries, CLI dispatch, YOLO flag
+         translation. Another layer of indirection.
+      7. 27+ FIX NOW items across 3 board reviews were container-specific bugs.
+
+      CLI COMPATIBILITY ISSUES:
+      1. Codex — may run its own sandbox internally, creating double-sandboxing. The
+         --dangerously-bypass-approvals-and-sandbox flag is required but may not fully
+         disable internal sandboxing in future versions.
+      2. Gemini — if/when added as an agent CLI, likely has its own sandbox mode that
+         would conflict with Docker isolation.
+      3. Qwen — explicitly cannot run in containers in current version. entrypoint.sh
+         hard-errors with "Qwen is not available in container mode."
+      4. Future CLIs — every new CLI added to the board must be tested for Docker
+         compatibility, sandbox conflicts, and auth flow. High ongoing maintenance burden.
+
+      WHAT CONTAINER ISOLATION ACTUALLY PREVENTS:
+      1. Agents reading sibling outboxes (blind review enforcement)
+      2. Agents walking host filesystem
+      3. Agents accessing real credentials
+      4. Agents interfering with each other's processes
+
+      WHAT BARE MODE ALREADY HAS:
+      1. Separate board user (llmuser) with restricted permissions
+      2. Agent CLAUDE.md instructions saying "don't snoop"
+      3. Directory-level permissions (agents run in their own dirs)
+      4. YOLO mode still restricted to agent's working directory
+
+      THE CORE QUESTION:
+      Is OS-level isolation worth 460 lines of proxy, 62 lines of Dockerfile,
+      62 lines of entrypoint, 14+ hard-won knowledge items, and incompatibility
+      with a growing list of CLIs? Or is the board user + instruction-based
+      isolation "good enough" given that agents are ephemeral, single-purpose,
+      and the review artifacts aren't high-security targets?
+
+    files_affected:
+      - container/Dockerfile
+      - container/entrypoint.sh
+      - container/fb-credential-proxy.cjs
+      - container/build.sh
+      - docs/ROADMAP-CONTAINER-ISOLATION.md
+      - .claude/skills/setup/SKILL.md
+      - .claude/skills/run/SKILL.md
+    touches_security: true
+    date: 2026-03-27
+
+  classification:
+    status: done
+    severity: major
+    escalated: true  # touches container isolation boundary
+    board_required: true  # architectural decision affecting all future agent CLIs
+    date: 2026-03-27
+
+  board_review:
+    status: pending
+    rounds: 0
+    findings: []
+    date: null
+
+  fix:
+    status: pending
+    files_modified: []
+    regression_test: false
+    date: null
+
+  smoke_test:
+    status: pending
+    method: null
+    result: null
+    all_agents_pass: false
+    skipped_reason: null
+    date: null
+
+  code_review:
+    status: pending
+    rounds: 0
+    findings: []
+    date: null
+
+  cleanup:
+    status: pending
+    artifacts_removed: []
+    date: null
+
+  final_signoff:
+    status: pending
+    date: null

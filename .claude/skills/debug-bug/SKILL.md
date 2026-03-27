@@ -17,8 +17,6 @@ Run `/debug-bug` to investigate and fix a bug with proper quality gates. The pro
 2. `docs/REVIEW-SOP.md` — 4-round SOP, severity levels
 3. `.board/board/BOARD.md` — agent invocations, auth strategy, isolation mode
 4. `.claude/skills/setup/SKILL.md` — Hard-Won Knowledge section (operational landmines)
-5. `container/fb-credential-proxy.cjs` — proxy logic (if credential/container issue)
-6. `container/entrypoint.sh` — agent startup routing
 
 **Key paths (commonly confused):**
 
@@ -27,7 +25,6 @@ Run `/debug-bug` to investigate and fix a bug with proper quality gates. The pro
 - `.board/board/DEFERRED_WORK.md` — active deferred items (legacy, also check tasks.json status=deferred)
 - `tasks.json` — master task index (bugs, features, deferred work)
 - `docs/tasks/` — per-task YAML files with phase gates and checklists
-- `container/` — Dockerfile, entrypoint, proxy, build script
 - `.claude/skills/` — skill definitions (what the orchestrator follows)
 
 ### Run Diagnostic First
@@ -127,22 +124,19 @@ gates:
 
 ### Run /debug Diagnostic
 
-Start with the diagnostic script from `/debug` skill Section 10. This checks: BOARD.md exists, isolation mode, Docker running, container image, auth tokens, agent directories, proxy status, firewall, lockfile, deferred items.
+Start with the diagnostic script from `/debug` skill. This checks: BOARD.md exists, auth tokens, agent directories, lockfile, deferred items.
 
 ### Reproduce the Bug
 
 1. Read the bug report / user description
-2. Check proxy logs: `cat /tmp/proxy.log` or restart proxy with `> /tmp/proxy.log 2>&1 &`
-3. Check container exit codes: `docker ps -a | grep fb-`
-4. Run a single-agent smoke test (Section 9.1 of `/debug` skill)
-5. Trace the execution path: BOARD.md invocation → docker run → entrypoint.sh → CLI → agent → outbox
+2. Run a single-agent smoke test from `/debug` skill
+3. Trace the execution path: BOARD.md invocation → `sudo -u $BOARD_USER` → CLI → agent reads CLAUDE.md → reads inbox → writes outbox
 
 ### Read Relevant Source Files
 
 Don't guess — read the actual code. Follow the flow:
-- **Container mode:** BOARD.md command → `docker run` → `entrypoint.sh` → CLI exec → agent reads CLAUDE.md → reads inbox → writes outbox
-- **Proxy flow:** Container request → proxy `detectUpstream()` → `injectCredentials()` → upstream API → response back
-- **Auth flow:** Token extraction → env var or file copy → container starts → CLI authenticates
+- **Bare mode:** BOARD.md command → `sudo -u $BOARD_USER bash -c 'unset CLAUDECODE && ...'` → CLI reads CLAUDE.md → reads inbox → writes outbox
+- **Auth flow:** CLI reads credentials from board user's home directory → authenticates with upstream API
 
 ### Document Root Cause
 
@@ -153,7 +147,7 @@ investigation:
   status: done
   root_cause: "description of what's wrong and why"
   files_affected: [list of files]
-  touches_security: true/false # credential proxy, container isolation, auth, permissions
+  touches_security: true/false # auth, permissions, blind review enforcement
 ```
 
 ## Phase 2: Classify Severity
@@ -163,15 +157,13 @@ Based on investigation, classify:
 | Severity     | Criteria                                                                    | Board Review |
 | ------------ | --------------------------------------------------------------------------- | ------------ |
 | **Minor**    | UX issue, formatting, missing log output, cosmetic skill error              | Skip         |
-| **Major**    | Auth failure, agent can't produce reports, proxy routing error, wrong model | Recommended  |
-| **Critical** | Credential leakage, container escape, cross-agent data, review SOP bypass   | **Required** |
+| **Major**    | Auth failure, agent can't produce reports, wrong model                      | Recommended  |
+| **Critical** | Credential leakage, cross-agent data access, review SOP bypass              | **Required** |
 
 ### Escalation Check
 
 If the fix touches ANY of these, escalate severity by one level:
 
-- Credential proxy (`fb-credential-proxy.cjs` — credential injection, upstream routing)
-- Container isolation boundary (Dockerfile, entrypoint, mounts, env vars)
 - Agent invocation pattern (BOARD.md commands, parallelism, timeout)
 - Review SOP (4-round process, lockfile, deferred items, blind review)
 - Setup skill templates (invocation commands that get written to BOARD.md)
@@ -205,7 +197,7 @@ Implement the fix. For each change, document what file was modified and why.
 **Verification during fix (not after):**
 - Run `/debug` diagnostic after each significant change
 - Single-agent smoke test after auth changes
-- Check BOARD.md invocation commands match actual `docker run` being tested
+- Check BOARD.md invocation commands match actual bare-mode commands being tested
 
 Update task YAML: `fix.status: done`, `files_modified: [...]`
 
@@ -213,26 +205,11 @@ Update task YAML: `fix.status: done`, `files_modified: [...]`
 
 **DO NOT skip this. ALL agents must pass.**
 
-### Full Smoke Test (Container Mode)
+### Full Smoke Test (Bare Mode)
 
 ```bash
 BOARD=/path/to/FrontierBoard/.board
-PROJ=/path/to/project
-
-# Pre-round setup
-CLAUDE_TOKEN=$(node -e "
-  const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
-  if(!d.claudeAiOauth||!d.claudeAiOauth.accessToken){console.error('No Claude OAuth token — run claude /login');process.exit(1)};
-  console.log(d.claudeAiOauth.accessToken)
-") || { echo "ERROR: Claude OAuth token extraction failed — run 'claude /login'"; exit 1; }
-[ -z "$CLAUDE_TOKEN" ] && { echo "ERROR: empty token"; exit 1; }
-# Copy Codex auth (prefer board user's fresh token)
-if [ -f /home/llmuser/.codex/auth.json ]; then
-  cp /home/llmuser/.codex/auth.json "$BOARD/board/systems-thinker/.codex/auth.json"
-elif [ -f ~/.codex/auth.json ]; then
-  cp ~/.codex/auth.json "$BOARD/board/systems-thinker/.codex/auth.json"
-fi
-chmod 600 "$BOARD/board/systems-thinker/.codex/auth.json" 2>/dev/null
+BOARD_USER=llmuser  # or whatever board user was created during setup
 
 # Write test brief to all agents
 for agent in pragmatist systems-thinker skeptic; do
@@ -241,8 +218,12 @@ for agent in pragmatist systems-thinker skeptic; do
   rm -f $BOARD/board/$agent/outbox/report.md
 done
 
-# Run all agents in parallel (copy parallelism pattern from BOARD.md)
-# ... (use exact commands from BOARD.md)
+# Run each agent (copy parallelism pattern from BOARD.md)
+for agent in pragmatist systems-thinker skeptic; do
+  AGENT_DIR="$BOARD/board/$agent"
+  sudo -u $BOARD_USER bash -c "unset CLAUDECODE && cd $AGENT_DIR && claude --dangerously-skip-permissions -p 'Read inbox/brief.md. Follow its instructions. Write your response to outbox/report.md.'" &
+done
+wait
 
 # Verify ALL reports
 for agent in pragmatist systems-thinker skeptic; do
@@ -257,7 +238,7 @@ Update task YAML:
 ```yaml
 smoke_test:
   status: done
-  method: 'all 3 agents in parallel, container mode'
+  method: 'all 3 agents in parallel, bare mode'
   result: 'all passed / agent X failed with ...'
   all_agents_pass: true/false
 ```
@@ -291,21 +272,8 @@ for agent in $BOARD/board/*/; do
   grep -q "Smoke test" "$agent/inbox/brief.md" 2>/dev/null && rm -f "$agent/inbox/brief.md" "$agent/inbox/context.md" "$agent/outbox/report.md"
 done
 
-# Copied auth files (contain credentials — always clean up)
-rm -f $BOARD/board/systems-thinker/.codex/auth.json
-
-# Proxy artifacts
-rm -f /tmp/proxy.log
-rm -f $BOARD/../container/.fb-proxy.pid
-
 # Stale review lockfile (if left from crashed test)
 rm -f $BOARD/.review-lock
-
-# Docker test containers (usually auto-removed with --rm, but check)
-docker rm $(docker ps -a --filter "name=fb-.*-smoke" -q) 2>/dev/null
-
-# Temp credential copies
-rm -f /tmp/.fb-claude-creds.json /tmp/.fb-*
 ```
 
 Update task YAML: `cleanup.status: done`, `artifacts_removed: [list]`
@@ -322,14 +290,13 @@ Update task YAML: `cleanup.status: done`, `artifacts_removed: [list]`
 
 **Major:**
 
-- Agent auth fails in container mode (like OAuth token race condition)
-- Proxy doesn't route requests correctly (wrong upstream detection)
+- Agent auth fails (OAuth token race condition, expired credentials)
 - Codex config format incompatible with new CLI version
 - Agent model not supported with ChatGPT account
 
 **Critical:**
 
-- Credential proxy leaks API keys to containers
-- Container agent can read sibling agent's outbox
+- Credential leakage to unauthorized processes
+- Agent reads sibling agent's outbox (blind review violation)
 - OAuth token written to shared location accessible by all agents
 - Review lockfile bypass allows concurrent reviews corrupting reports

@@ -27,13 +27,6 @@ Switch all board agents between YOLO (full autonomy) and supervised (permission 
 
 4. **Apply the toggle** (after user confirms):
 
-   **If `isolation: container`:**
-   - Set `yolo_mode: true` or `false` in BOARD.md
-   - Toggle `FB_YOLO=true` ↔ `FB_YOLO=false` in all `docker run` invocation commands
-   - That's it — container mode uses env vars, not CLI flags
-
-   **If `isolation: bare` (or no isolation field):**
-
    **To YOLO:**
    - Set `yolo_mode: true` in BOARD.md
    - Add `--dangerously-skip-permissions` to all Claude Code invocation commands
