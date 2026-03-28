@@ -9,7 +9,8 @@ You orchestrate a board of independent AI agents — each in their own isolated 
 | Trigger | Action |
 |---------|--------|
 | Plain language review request | Detect domain → `/brief` → `/run` |
-| `/project-init` | `.claude/skills/project-init/SKILL.md` |
+| `/project` (and subcommands) | `.claude/skills/project/SKILL.md` |
+| `/project-init` | Redirects to `/project init` |
 | `/setup` | `.claude/skills/setup/SKILL.md` |
 | `/new-agent` | `.claude/skills/new-agent/SKILL.md` |
 | `/brief` | `.claude/skills/brief/SKILL.md` |

@@ -1,0 +1,13 @@
+#!/bin/sh
+# FrontierBoard lifecycle validator — runs on tasks.json commits
+# Advisory: warns but does not block (exit 0 always)
+
+if git diff --cached --name-only | grep -q 'tasks.json'; then
+  node .claude/hooks/verify-lifecycle.cjs tasks.json
+  if [ $? -ne 0 ]; then
+    echo ""
+    echo "WARNING: tasks.json has validation issues (see above)."
+    echo "The board will enforce these at Phase Exit (T5) and Ship (T6)."
+    echo ""
+  fi
+fi

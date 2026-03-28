@@ -180,6 +180,20 @@ For any new DEFER items: add them to `tasks.json` with `"status": "deferred"` an
 
 Present summary: FIX NOW list, DEFER list, sign-off status.
 
+### Finding-to-Task Automation (lifecycle projects only)
+
+**Guard:** Only run this when `tasks.json` exists with `meta.version === 2` and at least one phase with `status: "active"`. Skip entirely for non-lifecycle reviews.
+
+After writing to REVIEW-LOG.md, convert findings to tasks:
+
+| Finding Severity | Action |
+|-----------------|--------|
+| FIX NOW | New task in active phase: `status: "open"`, `type: "fix"`, `source: "board-review"` |
+| DEFER | New task: `status: "deferred"`, `trigger` from finding |
+| INFO | No task — already in REVIEW-LOG.md |
+
+**Deduplication:** Before creating a task, check if a task with matching title AND section already exists in `tasks.json`. If so, link the finding to the existing task (update `source`) instead of creating a duplicate.
+
 ---
 
 ## Step 7: Next Steps

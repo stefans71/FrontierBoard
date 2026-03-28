@@ -84,7 +84,23 @@ Remove FrontierBoard entries from `$BOARD/.gitignore`. Only remove lines that ma
 
 ---
 
-## Step 7: Done
+## Step 7: Lifecycle Cleanup
+
+If lifecycle artifacts exist, offer to remove them:
+
+- `.claude/hooks/verify-lifecycle.cjs` — lifecycle validator hook
+- `.githooks/pre-commit` — git hook calling validator
+- `docs/test-specs/` — Skeptic-generated test specifications
+- `tasks.json` v2 phase/verification fields (revert to v1 if desired)
+- `.claude/skills/project/` — lifecycle sub-skills (only if removing FrontierBoard entirely)
+
+> Found lifecycle artifacts. Remove them too? (The tasks.json task data will be preserved — only lifecycle fields are stripped.)
+
+Only remove if confirmed. The hook and test-specs are safe to delete; tasks.json should be downgraded rather than deleted.
+
+---
+
+## Step 8: Done
 
 > FrontierBoard has been removed. The FrontierBoard repo clone at `$BOARD` still exists — delete it manually if you no longer need it.
 >
