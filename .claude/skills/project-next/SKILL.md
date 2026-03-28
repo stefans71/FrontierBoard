@@ -1,0 +1,1 @@
+../project/next/SKILL.md
