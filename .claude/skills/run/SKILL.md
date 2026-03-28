@@ -62,6 +62,20 @@ If BOARD.md contains `isolation: container`, error immediately:
 
 > Container mode has been removed. Re-run /setup or change isolation to bare in BOARD.md.
 
+### Pre-flight health checks
+
+Before launching agents, verify the board environment is functional. Fail fast with a clear message rather than launching agents into a broken setup.
+
+For each agent listed in BOARD.md:
+
+1. **Board user exists:** `id $BOARD_USER` — if it fails: "Board user '$BOARD_USER' does not exist. Re-run /setup."
+2. **Agent directory complete:** Verify `$AGENT_DIR/CLAUDE.md`, `$AGENT_DIR/inbox/`, and `$AGENT_DIR/outbox/` exist — if any missing: "Agent '{name}' is missing {path}. Re-run /setup or /new-agent."
+3. **Outbox writable:** `sudo -u $BOARD_USER test -w $AGENT_DIR/outbox` — if fails: "Board user cannot write to {agent}/outbox/. Fix: chown -R $BOARD_USER:$BOARD_USER $BOARD/.board/"
+4. **CLI on PATH:** For Claude agents: `sudo -u $BOARD_USER bash -c 'which claude'`. For Codex agents: `sudo -u $BOARD_USER bash -c 'which codex'` — if fails: "{cli} not found for board user. Install it or check PATH."
+5. **Credentials exist:** For Claude: check `~$BOARD_USER/.claude/.credentials.json` exists. For Codex: check `~$BOARD_USER/.codex/auth.json` exists — if missing: "No credentials for {cli}. Run '{cli} /login' as $BOARD_USER or copy credentials."
+
+If any check fails, do NOT create the lockfile or launch agents. Stop with the error message.
+
 ---
 
 ## Step 2: Round 1 — Blind Review
@@ -69,6 +83,13 @@ If BOARD.md contains `isolation: container`, error immediately:
 **Agents are ephemeral.** Every invocation is a fresh session with zero memory. All context — identity, domain context, brief, prior round artifacts — must be in their inbox. If you don't give it to them, they don't have it.
 
 Verify each agent's inbox has `brief.md` and `context.md`. If empty, ask about running `/brief` first.
+
+### Timing
+
+Record the review start time before launching agents:
+```bash
+REVIEW_START=$(date +%s)
+```
 
 Generate a run ID (e.g., `run-$(date +%s)`) and write it to each agent's `outbox/.run-id` before launching. This sentinel prevents stale report confusion.
 
@@ -81,6 +102,19 @@ Wait for all to complete. For each agent:
 4. Report failed agents explicitly before proceeding
 
 Do NOT share reports between agents. Do NOT synthesize error output as findings.
+
+### Round timing
+
+After all agents complete, record and report timing:
+```bash
+REVIEW_ROUND_END=$(date +%s)
+ROUND_ELAPSED=$((REVIEW_ROUND_END - REVIEW_START))
+```
+
+Report to the user:
+> Round 1 complete in {ROUND_ELAPSED}s — {agent1}: {time}s, {agent2}: {time}s, {agent3}: {time}s
+
+For parallel runs, the wall-clock time is the max of individual agent times. Report both individual durations and wall-clock total.
 
 ---
 
@@ -140,7 +174,7 @@ If all sign off → complete. If any block:
 
 Remove the review lockfile: `rm -f $BOARD/.board/.review-lock`
 
-Append to `.board/board/REVIEW-LOG.md`: what was reviewed, date, mode, rounds, agents, FIX NOW table, DEFER table with triggers, INFO items, key decisions.
+Append to `.board/board/REVIEW-LOG.md`: what was reviewed, date, mode, rounds, agents, FIX NOW table, DEFER table with triggers, INFO items, key decisions. Include timing: `**Timing:** Total: Xm Ys | Round 1: Xs (agent1: Xs, agent2: Xs, agent3: Xs) | Rounds 2-4: Xs each`
 
 For any new DEFER items: add them to `tasks.json` with `"status": "deferred"` and a `"trigger"` field describing the promotion condition. Create a corresponding YAML file at `docs/tasks/{task-id}.yaml` if the item warrants detailed tracking. Also update `.board/board/DEFERRED_WORK.md` (legacy format) for backward compatibility with existing board setups.
 

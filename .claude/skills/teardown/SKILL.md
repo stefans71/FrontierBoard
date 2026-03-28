@@ -46,6 +46,7 @@ List everything that was created during setup:
 >
 > **Board files:** `.board/` directory (agents, reports, review log, briefs)
 > **Integration skill:** `$PROJ/.claude/skills/board-review/SKILL.md` (if exists)
+> **Director skill:** `$PROJ/.claude/skills/director/SKILL.md` (if exists)
 > **Global skill:** `~/.claude/skills/frontierboard/SKILL.md` (if global install)
 > **Board user:** `$BOARD_USER` system account + sudoers entry (if created)
 > **Gitignore entries:** FrontierBoard lines in `.gitignore`
@@ -59,6 +60,7 @@ After user confirms:
 1. Delete `.board/` directory entirely
 2. If integration skill exists at `$PROJ/.claude/skills/board-review/SKILL.md` or `$PROJ/.claude/skills/frontierboard-review/SKILL.md`, delete it
 3. If global install, delete `~/.claude/skills/frontierboard/SKILL.md`
+4. If director skill exists at `$PROJ/.claude/skills/director/SKILL.md`, delete it
 
 ---
 
