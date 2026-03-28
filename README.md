@@ -58,19 +58,19 @@ Real output from a board review of FrontierBoard's own architecture:
 
 ```mermaid
 graph LR
-    subgraph "🔍 Round 1 — Blind Review"
-        S["Skeptic<br/>(Claude Opus)"]
-        P["Pragmatist<br/>(Claude Opus)"]
-        T["Systems Thinker<br/>(Codex)"]
+    subgraph Round 1 - Blind Review
+        S["Skeptic\n(Claude Opus)"]
+        P["Pragmatist\n(Claude Opus)"]
+        T["Systems Thinker\n(Codex)"]
     end
 
-    subgraph "📊 Round 2 — Consolidated Findings"
-        C1["🔴 C1: Add ripgrep to image<br/>3/3 agree · FIX NOW"]
-        C4["🔴 C4: Auth cleanup on crash<br/>3/3 agree · FIX NOW"]
-        C6["🔴 C6: Token expires mid-review<br/>2/3 agree · FIX NOW"]
-        C8["🔴 C8: Proxy idle timeout<br/>3/3 agree · FIX NOW"]
-        D1["🟡 D1: Proxy health detection<br/>DEFER · trigger: next proxy change"]
-        I1["🔵 I1: Exit code propagation<br/>INFO · no action needed"]
+    subgraph Round 2 - Consolidated Findings
+        C1["C1: Add ripgrep to image\n3/3 agree - FIX NOW"]
+        C4["C4: Auth cleanup on crash\n3/3 agree - FIX NOW"]
+        C6["C6: Token expires mid-review\n2/3 agree - FIX NOW"]
+        C8["C8: Proxy idle timeout\n3/3 agree - FIX NOW"]
+        D1["D1: Proxy health detection\nDEFER - trigger: next proxy change"]
+        I1["I1: Exit code propagation\nINFO - no action needed"]
     end
 
     S --> C1
@@ -80,8 +80,8 @@ graph LR
     T --> D1
     T --> I1
 
-    subgraph "✅ Round 4 — Sign Off"
-        V["2 SIGN OFF + 1 BLOCK<br/>(resolved — owner override)"]
+    subgraph Round 4 - Sign Off
+        V["2 SIGN OFF + 1 BLOCK\nresolved - owner override"]
     end
 
     C1 --> V
@@ -152,19 +152,19 @@ You never clone anything yourself. Claude handles it.
 
 ```mermaid
 graph TD
-    A["🧑‍💻 You + Claude"] -->|describe what to review| B["📝 Claude writes a brief"]
-    B --> C["📬 Brief goes to each agent's inbox"]
-    C --> D["🔍 Skeptic<br/>blind review"]
-    C --> E["⚙️ Pragmatist<br/>blind review"]
-    C --> F["🔗 Systems Thinker<br/>blind review"]
-    D --> G["📊 Round 2: Consolidation<br/>Group findings · classify severity"]
+    A["You + Claude"] -->|describe what to review| B["Claude writes a brief"]
+    B --> C["Brief goes to each agent inbox"]
+    C --> D["Skeptic\nblind review"]
+    C --> E["Pragmatist\nblind review"]
+    C --> F["Systems Thinker\nblind review"]
+    D --> G["Round 2: Consolidation\nGroup findings - classify severity"]
     E --> G
     F --> G
-    G --> H{"🤝 Unanimous?"}
-    H -->|Yes| I["✅ Round 4: Confirmation<br/>All agents sign off"]
-    H -->|No| J["⚖️ Round 3: Deliberation<br/>Disputed items only"]
+    G --> H{"Unanimous?"}
+    H -->|Yes| I["Round 4: Confirmation\nAll agents sign off"]
+    H -->|No| J["Round 3: Deliberation\nDisputed items only"]
     J --> I
-    I --> K["📋 FIX NOW · DEFER · INFO"]
+    I --> K["FIX NOW - DEFER - INFO"]
 ```
 
 <br>
@@ -177,18 +177,18 @@ Each agent runs in its own directory under a dedicated board user. Blind review 
 
 ```mermaid
 graph LR
-    A["/project-init<br/>Filing cabinet + phases"] -->|T1: Roadmap Review| B["Board"]
-    B -->|approved| C["/project-next<br/>Pick tasks · verify · close"]
-    C -->|all tasks done| D["/project-review<br/>T5: Phase Exit"]
+    A["/project-init\nFiling cabinet + phases"] -->|T1 Roadmap Review| B["Board"]
+    B -->|approved| C["/project-next\nPick tasks - verify - close"]
+    C -->|all tasks done| D["/project-review\nT5 Phase Exit"]
     D --> B
     B -->|approved| E["Next Phase"]
     E --> C
-    C -->|need tests| F["/project-tests<br/>Skeptic writes specs"]
-    F -->|code written| G["/project-tests --verify<br/>Skeptic reviews YOUR code"]
+    C -->|need tests| F["/project-tests\nSkeptic writes specs"]
+    F -->|code written| G["/project-tests --verify\nSkeptic reviews YOUR code"]
     G -->|pass| C
-    E -->|all phases done| H["/project-ship<br/>T6: mandatory review"]
+    E -->|all phases done| H["/project-ship\nT6 mandatory review"]
     H --> B
-    B -->|ship approved| I["Tagged · Maintenance mode"]
+    B -->|ship approved| I["Tagged - Maintenance mode"]
 ```
 
 Skeptic writes test specs, then reviews your test code against its own specs. No self-grading.
