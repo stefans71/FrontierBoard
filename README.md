@@ -6,7 +6,7 @@
 
 ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-required-orange?style=for-the-badge&logo=anthropic)
-![Skills](https://img.shields.io/badge/Skills-10-green?style=for-the-badge)
+![Skills](https://img.shields.io/badge/Skills-17-green?style=for-the-badge)
 ![Multi-Model](https://img.shields.io/badge/Multi--Model-any_frontier_CLI-purple?style=for-the-badge)
 ![GitHub stars](https://img.shields.io/github/stars/stefans71/FrontierBoard?style=for-the-badge)
 
@@ -173,6 +173,8 @@ Each agent runs in its own directory under a dedicated board user. Blind review 
 
 **Not just code.** Point the board at architecture decisions, business plans, hiring briefs, financial models, legal documents. The agents have stable thinking styles that apply to any domain.
 
+**Not just reviews.** The `/project-*` lifecycle harness turns the board into a project execution framework. Init a project, plan phases, build with verification, and the board reviews at every transition — roadmap approval, phase exit, test verification, ship. Skeptic writes test specs, then reviews your test code against its own specs. No self-grading.
+
 <br>
 
 ---
@@ -181,10 +183,19 @@ Each agent runs in its own directory under a dedicated board user. Blind review 
 
 ## <img src="assets/svg/heading-the-skills.svg" alt="The Skills" height="28">
 
+### Project Lifecycle
+| Command | What it does |
+|---------|-------------|
+| `/project-init` | Interviews you, writes a filing cabinet + lifecycle harness (phases, tasks, verification, board touchpoints) |
+| `/project-status` | Dashboard — current phase, task progress, diagnostics for stuck states |
+| `/project-next` | Pick a task, close it with verification, advance phases with git tags |
+| `/project-review` | Triggers the right board touchpoint automatically — roadmap, phase exit, ship |
+| `/project-tests` | Skeptic writes test specs; `/project-tests --verify` has Skeptic review your test code against its own specs |
+| `/project-ship` | Final board review (mandatory) + git tag + maintenance mode |
+
 ### Setup
 | Command | What it does |
 |---------|-------------|
-| `/project-init` | Interviews you, writes a filing cabinet (settings, CLAUDE.md, spec, tasks) for new or existing projects |
 | `/setup` | Builds the board — reads your project, creates agents, handles CLI auth |
 | `/new-agent` | Adds a new agent to an existing board |
 
