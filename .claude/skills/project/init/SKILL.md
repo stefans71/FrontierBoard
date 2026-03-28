@@ -161,4 +161,4 @@ Append to the existing `hooks.PostToolUse` array if one exists. Do not replace o
 
 ### Configure Git Hooks Path
 
-Run `git config core.hooksPath .githooks` in the project directory so the pre-commit hook activates. This enables the advisory validation on `tasks.json` commits.
+Run `git config --local core.hooksPath .githooks` in the project directory so the pre-commit hook activates. This enables the advisory validation on `tasks.json` commits.

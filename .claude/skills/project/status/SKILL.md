@@ -52,6 +52,7 @@ Flag inconsistencies:
 - Phase N active but Phase N-1 has unclosed tasks
 - Closed tasks missing verification fields
 - In-progress tasks with no recent activity (>7 days since status change)
+- Active phases with no task completions in >30 days (stale phase)
 - Deferred tasks without trigger conditions
 - Active phase with all tasks closed but no phase exit review
 

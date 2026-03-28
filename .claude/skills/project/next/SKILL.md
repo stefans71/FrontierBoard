@@ -46,8 +46,6 @@ Ask what happened:
 
 ### Closing a task (Done)
 
-Collect verification fields per the canonical state machine:
-
 Collect the verification fields defined in the `/project` router's canonical state machine:
 
 - `tests_passed`, `test_command`, `test_output_summary`, `verified_at` — required always

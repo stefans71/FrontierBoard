@@ -89,7 +89,7 @@ Remove FrontierBoard entries from `$BOARD/.gitignore`. Only remove lines that ma
 If lifecycle artifacts exist, offer to remove them:
 
 - `.claude/hooks/verify-lifecycle.cjs` — lifecycle validator hook
-- `.githooks/pre-commit` — git hook calling validator
+- `.githooks/pre-commit` — git hook calling validator. If removing, also run `git config --unset core.hooksPath` to restore default hook behavior.
 - `docs/test-specs/` — Skeptic-generated test specifications
 - `tasks.json` v2 phase/verification fields (revert to v1 if desired)
 - `.claude/skills/project/` — lifecycle sub-skills (only if removing FrontierBoard entirely)
