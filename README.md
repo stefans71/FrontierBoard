@@ -177,16 +177,17 @@ Each agent runs in its own directory under a dedicated board user. Blind review 
 
 ```mermaid
 graph TD
-    A["/project-init"] --> B["Board reviews roadmap"]
-    B --> C["/project-next — build + verify"]
-    C --> D{"Phase done?"}
-    D -->|no| C
-    D -->|yes| E["Board reviews phase exit"]
-    E -->|approved| F{"More phases?"}
-    F -->|yes| C
-    F -->|no| G["/project-ship"]
-    G --> H["Board reviews ship — mandatory"]
-    H --> I["Tagged + maintenance mode"]
+    A["You run /project-init"] --> B["You run /project-review"]
+    B --> C["Board reviews your roadmap"]
+    C -->|approved| D["You run /project-next"]
+    D --> E["You build, test, close tasks"]
+    E --> F["You run /project-review"]
+    F --> G["Board reviews phase exit"]
+    G -->|approved| H{"More phases?"}
+    H -->|yes| D
+    H -->|no| I["You run /project-ship"]
+    I --> J["Board reviews — mandatory sign-off"]
+    J --> K["Shipped + tagged"]
 ```
 
 Skeptic writes test specs, then reviews your test code against its own specs. No self-grading.
