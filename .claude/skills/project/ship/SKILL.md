@@ -77,6 +77,7 @@ After board signs off:
 
 These conditions halt the ship process:
 
-- **2 consecutive ship rejections** → halt, require human re-scope
+- **2 consecutive ship rejections** → halt, require human re-scope. Read `meta.ship_rejections` from `tasks.json`. Increment on rejection, reset on re-scope. If >= 2, halt and require human intervention.
+- **>15 tasks in a single phase** → trigger split review. Before composing the T6 brief, check each phase's task count. If any phase has >15 tasks, warn the user and suggest splitting the phase before proceeding.
 - **>5 deferred items** → force Standard review of deferred items before ship
-- **Stale phases (>30 days active with no completions)** → warn and require acknowledgment
+- **Stale phases (>30 days active with no completions)** → warn and require acknowledgment. Check each phase: if `status: "active"` and `started` is more than 30 days ago, warn.

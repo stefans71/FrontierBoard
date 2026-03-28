@@ -17,8 +17,9 @@ Read the target project path. Check for existing files:
 |-------|-------|--------|
 | Nothing | Fresh | Full init: filing cabinet + lifecycle |
 | `settings.json` / `CLAUDE.md` but no tasks.json v2 | Partial | Add lifecycle on top of existing setup |
-| tasks.json v1 (version 1) | Migration | Offer upgrade: add phases, bump version, preserve existing tasks |
-| tasks.json v2 (version 2) | Already initialized | Offer reset or continue from current state |
+| tasks.json exists but no `meta.version` field | Legacy v1 | Treat as v1 — offer migration (add phases, bump version, preserve tasks) |
+| tasks.json v1 (`meta.version: 1`) | Migration | Offer upgrade: add phases, bump version, preserve existing tasks |
+| tasks.json v2 (`meta.version: 2`) | Already initialized | Offer reset or continue from current state |
 
 **FrontierBoard guard:** If board skills (setup, run, brief) exist at the path, stop — this is a FrontierBoard directory, not a project.
 
@@ -70,7 +71,8 @@ Write `tasks.json` with v2 schema:
     "project": "{project-name}",
     "current_phase": 0,
     "created": "{today}",
-    "last_modified": "{today}"
+    "last_modified": "{today}",
+    "ship_rejections": 0
   },
   "phases": [
     {
@@ -154,3 +156,9 @@ Add the lifecycle validator hook to `.claude/settings.json`:
 ```
 
 Only fires when `$FILEPATH` matches `tasks.json`. The hook is advisory — real enforcement is the board at T5 and T6.
+
+Append to the existing `hooks.PostToolUse` array if one exists. Do not replace other hooks.
+
+### Configure Git Hooks Path
+
+Run `git config core.hooksPath .githooks` in the project directory so the pre-commit hook activates. This enables the advisory validation on `tasks.json` commits.

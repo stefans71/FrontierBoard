@@ -192,7 +192,7 @@ After writing to REVIEW-LOG.md, convert findings to tasks:
 | DEFER | New task: `status: "deferred"`, `trigger` from finding |
 | INFO | No task — already in REVIEW-LOG.md |
 
-**Deduplication:** Before creating a task, check if a task with matching title AND section already exists in `tasks.json`. If so, link the finding to the existing task (update `source`) instead of creating a duplicate.
+**Deduplication:** Before creating a task, check if a task with matching title AND phase already exists in `tasks.json`. If so, link the finding to the existing task (update `source`) instead of creating a duplicate.
 
 ---
 

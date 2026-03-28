@@ -3,7 +3,8 @@
 # Advisory: warns but does not block (exit 0 always)
 
 if git diff --cached --name-only | grep -q 'tasks.json'; then
-  node .claude/hooks/verify-lifecycle.cjs tasks.json
+  REPO_ROOT="$(git rev-parse --show-toplevel)"
+  node "$REPO_ROOT/.claude/hooks/verify-lifecycle.cjs" "$REPO_ROOT/tasks.json"
   if [ $? -ne 0 ]; then
     echo ""
     echo "WARNING: tasks.json has validation issues (see above)."
@@ -11,3 +12,5 @@ if git diff --cached --name-only | grep -q 'tasks.json'; then
     echo ""
   fi
 fi
+
+exit 0

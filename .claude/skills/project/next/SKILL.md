@@ -48,14 +48,12 @@ Ask what happened:
 
 Collect verification fields per the canonical state machine:
 
-1. `tests_passed` — Did tests pass? (boolean)
-2. `test_command` — What command runs the tests? (string)
-3. `test_output_summary` — Brief result (e.g., "12 passing, 0 failing")
-4. `verified_at` — current timestamp
-5. `verified_by` — "orchestrator"
-6. `spec_coverage` — ONLY if `test_spec` is non-null: "N/M items covered"
+Collect the verification fields defined in the `/project` router's canonical state machine:
 
-All fields except `spec_coverage` are required. If the user can't provide test evidence, explain:
+- `tests_passed`, `test_command`, `test_output_summary`, `verified_at` — required always
+- `spec_coverage` — required ONLY when `test_spec` is non-null
+
+If the user can't provide test evidence, explain:
 
 > Verification is required to close a task. The board checks these fields at Phase Exit (T5). What test command validates this work?
 

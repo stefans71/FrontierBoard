@@ -84,6 +84,8 @@ Build the brief content based on touchpoint:
 
 Read `.board/board/BOARD.md` for agent list and directories.
 
+**Check lockfile first:** Before clearing any outboxes, check for `.board/.review-lock`. If a review is already in progress, abort with a message — do NOT clear outboxes of an in-progress review.
+
 For each agent (or Skeptic only for T3/T4):
 
 1. Write `inbox/context.md` — domain context from agent's `contexts/` directory
@@ -116,7 +118,7 @@ After `/run` completes, convert findings to tasks.json entries:
 | DEFER | New task: `status: "deferred"`, `trigger` from finding |
 | INFO | Log to REVIEW-LOG.md only — no task created |
 
-**Deduplication:** Before creating a task, check if a task with matching title AND section already exists. If so, link the finding to the existing task instead of creating a duplicate. Use `source` field to track origin.
+**Deduplication:** Before creating a task, check if a task with matching title AND phase already exists in `tasks.json`. If so, link the finding to the existing task (update `source`) instead of creating a duplicate.
 
 ---
 

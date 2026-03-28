@@ -100,6 +100,7 @@ if (Array.isArray(data.tasks)) {
       } else {
         if (v.tests_passed == null) violations.push(`Task ${task.id}: missing verification.tests_passed`);
         if (!v.test_command) violations.push(`Task ${task.id}: missing verification.test_command`);
+        if (!v.test_output_summary) violations.push(`Task ${task.id}: missing verification.test_output_summary`);
         if (!v.verified_at) violations.push(`Task ${task.id}: missing verification.verified_at`);
 
         // spec_coverage required ONLY when test_spec is non-null
