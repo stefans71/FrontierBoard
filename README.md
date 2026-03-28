@@ -176,19 +176,17 @@ Each agent runs in its own directory under a dedicated board user. Blind review 
 **Not just reviews.** The `/project-*` lifecycle harness turns the board into a project execution framework:
 
 ```mermaid
-graph LR
-    A["/project-init<br/>Filing cabinet + phases"] -->|T1 Roadmap Review| B["Board"]
-    B -->|approved| C["/project-next<br/>Pick tasks - verify - close"]
-    C -->|all tasks done| D["/project-review<br/>T5 Phase Exit"]
-    D --> B
-    B -->|approved| E["Next Phase"]
-    E --> C
-    C -->|need tests| F["/project-tests<br/>Skeptic writes specs"]
-    F -->|code written| G["/project-tests --verify<br/>Skeptic reviews YOUR code"]
-    G -->|pass| C
-    E -->|all phases done| H["/project-ship<br/>T6 mandatory review"]
-    H --> B
-    B -->|ship approved| I["Tagged - Maintenance mode"]
+graph TD
+    A["/project-init"] --> B["Board reviews roadmap"]
+    B --> C["/project-next — build + verify"]
+    C --> D{"Phase done?"}
+    D -->|no| C
+    D -->|yes| E["Board reviews phase exit"]
+    E -->|approved| F{"More phases?"}
+    F -->|yes| C
+    F -->|no| G["/project-ship"]
+    G --> H["Board reviews ship — mandatory"]
+    H --> I["Tagged + maintenance mode"]
 ```
 
 Skeptic writes test specs, then reviews your test code against its own specs. No self-grading.
