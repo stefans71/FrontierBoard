@@ -51,6 +51,7 @@ These are operational facts Claude cannot derive from general training. Never re
 
 9. **Agent invocation must read CLAUDE.md** — All invocation commands must tell the agent to read its CLAUDE.md first, then read inbox files. Example: `"read CLAUDE.md then read inbox/context.md and inbox/brief.md and write your report to outbox/report.md"`. Agents without CLAUDE.md instructions lose their identity.
 
+10. **`claudeMdExcludes` blocks tree-walking leaks** — Claude Code walks UP the directory tree from CWD and loads EVERY `CLAUDE.md` it finds. Agents inside `$BOARD/.board/board/{agent}/` would pick up `$BOARD/CLAUDE.md` (orchestrator routing table) and potentially `$PROJ/CLAUDE.md` (project rules). This pollutes agent context with instructions meant for the orchestrator. Fix: every agent's `.claude/settings.json` must include `claudeMdExcludes` listing the absolute paths of all parent CLAUDE.md files to block. Note: `.claude/settings.json` does NOT walk up — only CLAUDE.md does.
 
 ---
 
@@ -146,6 +147,21 @@ Do NOT continue to Step 6 if validation fails — the generated invocation templ
 For each agent, create their directory at `$BOARD/.board/board/{agent-name}/` with:
 - `inbox/`, `outbox/`, `learnings/`, `contexts/`
 - Settings bubble for their CLI (Claude: `.claude/settings.json` allowing all tools + model. Codex: `.codex/config.toml` with approval=never + project doc pointing to CLAUDE.md. Qwen: `.qwen/settings.json` with yolo mode.)
+- **`claudeMdExcludes` (critical):** Claude Code walks up the directory tree and loads every CLAUDE.md it finds. Agents must NOT pick up the FrontierBoard orchestrator's CLAUDE.md or the user's project CLAUDE.md — only their own agent identity. Add `claudeMdExcludes` to each agent's `.claude/settings.json` listing the absolute paths of all CLAUDE.md files above the agent directory. At minimum, exclude `$BOARD/CLAUDE.md`. If `$PROJ/CLAUDE.md` exists and the board is inside or near the project, exclude that too.
+
+  **Claude agent `.claude/settings.json` template:**
+  ```json
+  {
+    "permissions": {
+      "allow": ["Read", "Glob", "Grep", "Write", "Edit", "Bash"]
+    },
+    "model": "claude-opus-4-6",
+    "claudeMdExcludes": [
+      "{$BOARD}/CLAUDE.md"
+    ]
+  }
+  ```
+  Replace `{$BOARD}` with the resolved absolute path. Add `"{$PROJ}/CLAUDE.md"` to the array if `$PROJ` has a CLAUDE.md. For supervised mode, restrict the permissions list.
 - `CLAUDE.md` — agent identity. Domain-agnostic thinking style, NOT domain knowledge. Cover: who they are, how they think, what they're reviewing (one sentence naming the project), output format (structured findings using the SOP severity levels: FIX NOW / DEFER / INFO / REJECT, with location/finding/scenario/recommendation), rules (blind review, write report first, load context from inbox).
 
 **Context files** go in `contexts/{domain}.md`. This is where ALL domain-specific knowledge lives — architecture, tech stack, key files, threat models. Tailor to each agent's thinking style. Write one context per domain chosen in Step 3, or three (software, business, general) if they chose "mix."
@@ -188,7 +204,109 @@ If no board user, omit `sudo -u`. If supervised mode, omit `--dangerously-skip-p
 
 **fb-project-bridge:** Create `$BOARD/.board/bridge/run-review.sh` (executable) that accepts a brief, populates each agent's `inbox/brief.md` (not a dead `board/inbox/` path), switches to board user if root, runs the orchestrator. The bridge must include `unset CLAUDECODE` before any Claude invocation. Create a skill at `$PROJ/.claude/skills/board-review/SKILL.md` that tells the project's Claude how to invoke the bridge with timing estimates and a polling pattern. Add bridge section to BOARD.md.
 
-**claude-project:** Create a skill at `$PROJ/.claude/skills/board-review/SKILL.md` (or `frontierboard-review` if name is taken) that triggers the board from any Claude session. Include timing estimates, background launch with nohup, polling, and cleanup. Check for existing skill — if it's a previous FrontierBoard install, offer to update; if unrelated, use alternate name. Add integration section to BOARD.md. Tell the user what was created and how to use it.
+**claude-project:** Create a skill at `$PROJ/.claude/skills/board-review/SKILL.md` that triggers the board from any Claude session. Check for existing skill first — if it's a previous FrontierBoard install, offer to update; if unrelated, use alternate name (`frontierboard-review`).
+
+Write the following template to `$PROJ/.claude/skills/board-review/SKILL.md`, replacing all `{$BOARD}`, `{$PROJ}`, and `{$BOARD_USER}` with resolved absolute paths (no tilde). If no board user exists (non-root), omit `sudo -u {$BOARD_USER}` from the launch command.
+
+```markdown
+---
+name: board-review
+description: Trigger a FrontierBoard governance review from this project session. Type /board-review or describe what you want reviewed.
+---
+
+# Board Review
+
+Trigger a board review without leaving this session.
+
+## Board Location
+
+- **Board:** {$BOARD}
+- **Board state:** {$BOARD}/.board
+- **Board user:** {$BOARD_USER}
+- **Project:** {$PROJ}
+
+## Behavior
+
+When the user types `/board-review` or describes something to review:
+
+### 1. Accept the review request
+
+Ask what to review if not already specified. Capture the full description.
+
+### 2. Pre-flight checks
+
+Run these before launching. Stop with a clear message if any fail:
+
+1. **Board exists:** `[ -f "{$BOARD}/.board/board/BOARD.md" ]` — if not: "Board not found at {$BOARD}. Run /setup first."
+2. **No review in progress:** Check `{$BOARD}/.board/.review-lock` — if it exists, read the PID. If PID is alive: "Review already in progress (PID {pid}). Wait or kill it." If PID is dead: remove stale lock and continue.
+3. **Agents ready:** Verify at least one agent directory exists under `{$BOARD}/.board/board/` with inbox/ and outbox/.
+
+### 3. Stage the review description
+
+Write the description to a staging file to avoid shell escaping issues:
+
+```bash
+mkdir -p {$BOARD}/.board/bridge
+cat > {$BOARD}/.board/bridge/pending-review.md << 'BRIEF'
+[user's review description here]
+BRIEF
+```
+
+### 4. Launch the orchestrator
+
+Run in background so the user's session isn't blocked (reviews take 8–15 minutes):
+
+```bash
+nohup sudo -u {$BOARD_USER} bash -c 'unset CLAUDECODE && cd {$BOARD} && claude --dangerously-skip-permissions -p "Read .board/CLAUDE.md for your identity. Read .board/bridge/pending-review.md for the review request. The project is at {$PROJ}. Run /brief with this context, then /run."' > /tmp/fb-review-$$.log 2>&1 &
+echo $! > /tmp/fb-review-$$.pid
+```
+
+Tell the user:
+> Board review launched. Standard reviews take 8–15 minutes. I'll check every 60 seconds and report back.
+
+### 5. Poll for completion
+
+Check every 60 seconds:
+- Is the orchestrator PID still alive? (`kill -0 $(cat /tmp/fb-review-$$.pid)`)
+- Has `{$BOARD}/.board/board/REVIEW-LOG.md` been modified since launch?
+
+On completion (PID exits):
+1. Read `{$BOARD}/.board/board/REVIEW-LOG.md` — find the most recent review entry
+2. Present: FIX NOW items, DEFER items with trigger conditions, INFO items
+3. Show agent agreement/disagreement per finding
+4. Ask: "Want to work through the FIX NOW items now, or save for later?"
+
+On failure (non-zero exit or no new REVIEW-LOG entry):
+1. Read `/tmp/fb-review-$$.log` for error output
+2. Present the error and suggest: "Run /debug from {$BOARD} to diagnose."
+
+### 6. Cleanup
+
+```bash
+rm -f /tmp/fb-review-$$.pid /tmp/fb-review-$$.log {$BOARD}/.board/bridge/pending-review.md
+```
+
+## Notes
+
+- The orchestrator handles /brief and /run — this skill just triggers and reports
+- For planning help before a review, use /director
+- Reviews run agents in parallel as {$BOARD_USER} (bare mode)
+- Agents are ephemeral — zero memory between rounds, everything via inbox
+```
+
+Also add an "Integration" section to BOARD.md:
+
+```markdown
+## Integration
+
+**Project:** {$PROJ}
+**Skill:** {$PROJ}/.claude/skills/board-review/SKILL.md
+
+From the project's Claude session, type `/board-review` or describe what to review.
+```
+
+Tell the user:
+> Created `/board-review` skill in your project. From your project session, type `/board-review` or just describe what you want reviewed.
 
 **standalone:** Add a "Running a Review" section to BOARD.md with the direct command.
 
