@@ -170,7 +170,7 @@ For each agent, create their directory at `$BOARD/.board/board/{agent-name}/` wi
 
 ## Step 6b: Fix Ownership
 
-If a board user exists, chown all of `.board/` to that user and ensure parent directory traversal (see Hard-Won Knowledge #5).
+If a board user exists, chown all of `.board/` to that user and ensure parent directory traversal (see Hard-Won Knowledge #5). Also chown `$BOARD/tasks.json` to the board user — it lives outside `.board/` but agents need write access to update task status after reviews.
 
 ---
 
