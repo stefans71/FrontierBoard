@@ -73,6 +73,28 @@ Only for disputed items. Agent positions now visible with names. Agents state AG
 ### Round 4: Confirmation
 Final brief: all items with classifications and resolution. Agents state SIGN OFF or BLOCK. Complete when all sign off, or owner overrides remaining blocks with rationale.
 
+### Post-Confirmation: Fix Artifact Authoring (when FIX NOW items exist)
+
+After confirmation sign-off, agents author concrete fix artifacts for each FIX NOW item. This converts abstract findings into precise, mechanically-applicable changes.
+
+**Format per item:**
+- **Location**: exact file, section, paragraph, or clause
+- **Current text**: verbatim excerpt with 3+ lines of surrounding context for anchoring (copy-paste, not paraphrased)
+- **Replacement text**: complete replacement with same surrounding context (not descriptions or pseudocode)
+- **Rationale**: one sentence explaining why
+- **Dependencies**: other items that must be applied first
+
+Line numbers are informational only. The current-text block with anchored context is the canonical match target.
+
+**Rules:**
+- Agents must read the actual artifact to produce current-text blocks — do not guess
+- Each fix is self-contained
+- Cross-cutting dependencies noted explicitly
+- Multiple agents may produce competing fixes; facilitator reconciles (prefer most specific fix, prefer fewest files touched, prefer root-cause fix over symptom fix)
+- Fix artifacts are authored by agents but **applied manually by the owner or facilitator** unless automated application has been explicitly designed with single-writer semantics
+
+**Skip when:** Zero FIX NOW items.
+
 **Expedited:** If Round 2 is unanimous, skip Round 3 → go to Round 4.
 
 ---
@@ -135,6 +157,16 @@ If artifact exceeds ~50KB: executive summary + full text + section index. Over ~
 **Trigger:** [For DEFER only]
 ```
 
+**Fix Artifact (post-confirmation):**
+```
+### C[N]: [Title]
+**Location:** [exact file/section/clause]
+**Current:** [verbatim text with 3+ lines surrounding context]
+**Replacement:** [exact replacement with same context]
+**Rationale:** [one sentence]
+**Dependencies:** [other C-items to apply first, if any]
+```
+
 ---
 
 ## 7. Owner Directives
@@ -160,14 +192,17 @@ Override agent positions. Issued between rounds, included in next brief. Must in
 | Override without rationale | Always explain why |
 | More than 5 rounds | 3-4 is the sweet spot |
 | Unanimous → more rounds | Skip to confirmation |
+| Abstract "fix" descriptions in FIX NOW items | Author concrete BEFORE/AFTER fix artifacts post-confirmation |
+| Applying fixes without verifying current text | Verify current-text blocks match artifact before replacing |
+| Automated fix application without single-writer design | Fix artifacts are manual-only until single-writer semantics are designed |
 
 ---
 
 ## Quick Reference
 
 ```
-Minimum (3 rounds): Blind → Consolidation → Confirmation
-Full (4 rounds):    Blind → Consolidation → Deliberation → Confirmation
+Minimum (3 rounds): Blind → Consolidation → Confirmation [→ Fix Artifacts if FIX NOW]
+Full (4 rounds):    Blind → Consolidation → Deliberation → Confirmation [→ Fix Artifacts if FIX NOW]
 
 Severity: Wrong/dangerous? → FIX NOW. Real but not now? → DEFER (trigger). Worth noting? → INFO.
 Verdicts: R1: findings. R2: AGREE/DISAGREE/MODIFY. R3: AGREE/BLOCK. R4: SIGN OFF/BLOCK.
