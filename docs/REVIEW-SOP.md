@@ -97,6 +97,32 @@ Line numbers are informational only. The current-text block with anchored contex
 
 **Expedited:** If Round 2 is unanimous, skip Round 3 → go to Round 4.
 
+### Pre-Archive Gate: Dissent Audit (MANDATORY)
+
+Before moving a completed review from active scratch (e.g., `.board-review-temp/<topic>/`) to its canonical archive location (e.g., `docs/External-Board-Reviews/<MMDDYY>-<topic>/`), the facilitator MUST produce a full dissent audit.
+
+**What the audit must enumerate:**
+
+- Every FIX NOW, DEFER, INFO, blind spot, meta-dissent, and non-trivial nuance raised in R1
+- Every ADJUST, new FIX NOW, withdrawn position, and explicit non-escalation raised in R2 (and R3 if R4 occurred)
+- For each item: source (agent + round), R2 vehicle (FN/D/I ID, consolidated-finding ID, or "author-withdrawn"/"explicitly absorbed"), and final-round resolution (CONFIRM / SECOND / applied-via-A-N / carry-forward / explicit drop with rationale)
+
+**Pass criterion: ZERO silent drops.**
+
+A "silent drop" is any dissent item that appears in an R1 or R2 response but does not appear in the final-round applied set AND has no explicit disposition (author withdrawal, non-escalation with agent acknowledgement, or rationale-documented drop). Silent drops fail the gate.
+
+**Placement:** The dissent audit lives in the `CONSOLIDATION.md` as its own section, separate from the verdict matrix and the applied-set description. It must be readable standalone.
+
+**Why this gate exists:**
+
+- R2 briefs must include all dissent items for stateless agents to vote on them. Without a pre-archive audit, items dropped at R1→R2 handoff can reach the archive without the owner noticing.
+- Archives are the canonical record of governance. Incomplete archives erode the trust the process earns.
+- The audit itself is cheap — 5-15 minutes for a 3-round review. Running it before archival catches handoff regressions at their cheapest point.
+
+**Skip only when:** Zero dissent items raised across all rounds (extremely rare; record "No dissents raised" as the audit result).
+
+**Anti-pattern flagged below as well:** "Archiving without dissent audit" → Run the audit; zero silent drops is the pass criterion.
+
 ---
 
 ## 5. Brief Requirements
@@ -195,15 +221,18 @@ Override agent positions. Issued between rounds, included in next brief. Must in
 | Abstract "fix" descriptions in FIX NOW items | Author concrete BEFORE/AFTER fix artifacts post-confirmation |
 | Applying fixes without verifying current text | Verify current-text blocks match artifact before replacing |
 | Automated fix application without single-writer design | Fix artifacts are manual-only until single-writer semantics are designed |
+| R2 brief containing only FIX NOW convergence | Include ALL R1 dissent items (FIX NOW + DEFER + INFO + blind spots). Stateless agents can't vote on what they can't see. |
+| Archiving without dissent audit | Run the dissent audit (see Section 4 Pre-Archive Gate). Zero silent drops is the pass criterion. |
 
 ---
 
 ## Quick Reference
 
 ```
-Minimum (3 rounds): Blind → Consolidation → Confirmation [→ Fix Artifacts if FIX NOW]
-Full (4 rounds):    Blind → Consolidation → Deliberation → Confirmation [→ Fix Artifacts if FIX NOW]
+Minimum (3 rounds): Blind → Consolidation → Confirmation [→ Fix Artifacts if FIX NOW] → Dissent Audit → Archive
+Full (4 rounds):    Blind → Consolidation → Deliberation → Confirmation [→ Fix Artifacts if FIX NOW] → Dissent Audit → Archive
 
 Severity: Wrong/dangerous? → FIX NOW. Real but not now? → DEFER (trigger). Worth noting? → INFO.
 Verdicts: R1: findings. R2: AGREE/DISAGREE/MODIFY. R3: AGREE/BLOCK. R4: SIGN OFF/BLOCK.
+Pre-archive: Dissent audit mandatory. Zero silent drops = pass.
 ```
